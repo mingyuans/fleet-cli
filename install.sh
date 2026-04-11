@@ -102,15 +102,17 @@ main() {
         mkdir -p "$INSTALL_DIR" 2>/dev/null || sudo mkdir -p "$INSTALL_DIR"
     fi
     if [ -w "$INSTALL_DIR" ]; then
+        rm -f "${INSTALL_DIR}/${BINARY}"
         mv "${TMPDIR}/${BINARY}-${OS}-${ARCH}" "${INSTALL_DIR}/${BINARY}"
     else
+        sudo rm -f "${INSTALL_DIR}/${BINARY}"
         sudo mv "${TMPDIR}/${BINARY}-${OS}-${ARCH}" "${INSTALL_DIR}/${BINARY}"
     fi
     chmod +x "${INSTALL_DIR}/${BINARY}"
     ok "Installed ${BINARY} to ${INSTALL_DIR}/${BINARY}"
 
     echo ""
-    "${INSTALL_DIR}/${BINARY}" --version
+    "${INSTALL_DIR}/${BINARY}" version
     echo ""
     log "Run 'fleet --help' to get started."
 }
