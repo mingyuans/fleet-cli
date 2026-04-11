@@ -23,8 +23,8 @@ make build
 
 ```
 workspace/
-├── default.xml              # 团队共享配置（提交到 Git）
-├── local_manifest.xml       # 个人本地配置（不提交）
+├── fleet.xml              # 团队共享配置（提交到 Git）
+├── local_fleet.xml       # 个人本地配置（不提交）
 └── services/
     ├── user-service/
     ├── order-service/
@@ -33,7 +33,7 @@ workspace/
 
 ### 2. 配置 Manifest
 
-**default.xml** — 团队共享配置：
+**fleet.xml** — 团队共享配置：
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -54,7 +54,7 @@ workspace/
 </manifest>
 ```
 
-**local_manifest.xml** — 个人 Fork 配置：
+**local_fleet.xml** — 个人 Fork 配置：
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -111,7 +111,7 @@ fleet init [-g <group>]
 
 ```
   ▸ Default push remote: fork
-  ▸ Local manifest: /path/to/local_manifest.xml
+  ▸ Local manifest: /path/to/local_fleet.xml
 
 Initializing 5 projects...
   ✓ [1/5] services/user-service (cloned)
@@ -386,7 +386,7 @@ fleet ide-setup idea [-g <group>]
 
 ### 合并规则
 
-当 `local_manifest.xml` 存在时，与 `default.xml` 按以下规则合并：
+当 `local_fleet.xml` 存在时，与 `fleet.xml` 按以下规则合并：
 
 - **Remote** — 同名替换，新增追加
 - **Default** — 逐属性覆盖（local 非空属性覆盖 default 对应属性）
@@ -407,11 +407,11 @@ push_url  = push_remote.fetch + project.name + ".git"
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `FLEET_MANIFEST` | 主 manifest 文件路径 | `<workspace_root>/default.xml` |
-| `FLEET_LOCAL_MANIFEST` | 本地覆盖 manifest 文件路径 | `<workspace_root>/local_manifest.xml` |
+| `FLEET_MANIFEST` | 主 manifest 文件路径 | `<workspace_root>/fleet.xml` |
+| `FLEET_LOCAL_MANIFEST` | 本地覆盖 manifest 文件路径 | `<workspace_root>/local_fleet.xml` |
 
 ```bash
-FLEET_MANIFEST=~/custom/default.xml fleet status
+FLEET_MANIFEST=~/custom/fleet.xml fleet status
 FLEET_LOCAL_MANIFEST=~/custom/local.xml fleet init
 ```
 
@@ -423,8 +423,8 @@ FLEET_LOCAL_MANIFEST=~/custom/local.xml fleet init
 
 ```bash
 cd my-workspace
-# 创建个人 local_manifest.xml，配置 fork remote
-vim local_manifest.xml
+# 创建个人 local_fleet.xml，配置 fork remote
+vim local_fleet.xml
 # 初始化所有仓库
 fleet init
 # 或只初始化某个 group
@@ -458,10 +458,10 @@ fleet push --all
 
 ### 添加新服务
 
-1. 在 `default.xml` 中添加 `<project>` 条目
+1. 在 `fleet.xml` 中添加 `<project>` 条目
 2. 运行 `fleet init` — 新仓库被 clone，已有仓库不受影响
 
 ### 添加私有仓库
 
-1. 在 `local_manifest.xml` 中添加 `<project>` 条目
+1. 在 `local_fleet.xml` 中添加 `<project>` 条目
 2. 运行 `fleet init`

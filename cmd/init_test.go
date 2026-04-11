@@ -77,7 +77,7 @@ func setupIntegrationWorkspace(t *testing.T) (workspaceDir string, cleanup func(
   <project name="svc-a" path="services/svc-a" />
 </manifest>`
 
-	if err := os.WriteFile(filepath.Join(workspaceDir, "default.xml"), []byte(defaultXML), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(workspaceDir, "fleet.xml"), []byte(defaultXML), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -88,7 +88,7 @@ func TestInitCloneAndIdempotent(t *testing.T) {
 	wsDir, cleanup := setupIntegrationWorkspace(t)
 	defer cleanup()
 
-	t.Setenv("FLEET_MANIFEST", filepath.Join(wsDir, "default.xml"))
+	t.Setenv("FLEET_MANIFEST", filepath.Join(wsDir, "fleet.xml"))
 	t.Setenv("FLEET_LOCAL_MANIFEST", "")
 
 	// Reset group filter

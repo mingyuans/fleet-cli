@@ -9,11 +9,11 @@ import (
 func setupTestWorkspace(t *testing.T, defaultXML, localXML string) string {
 	t.Helper()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "default.xml"), []byte(defaultXML), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "fleet.xml"), []byte(defaultXML), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if localXML != "" {
-		if err := os.WriteFile(filepath.Join(dir, "local_manifest.xml"), []byte(localXML), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, "local_fleet.xml"), []byte(localXML), 0644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -36,7 +36,7 @@ const testLocalXML = `<?xml version="1.0" encoding="UTF-8"?>
 
 func TestLoadWithEnvManifest(t *testing.T) {
 	dir := setupTestWorkspace(t, testDefaultXML, "")
-	t.Setenv("FLEET_MANIFEST", filepath.Join(dir, "default.xml"))
+	t.Setenv("FLEET_MANIFEST", filepath.Join(dir, "fleet.xml"))
 	t.Setenv("FLEET_LOCAL_MANIFEST", "")
 
 	ws, err := Load()
@@ -56,7 +56,7 @@ func TestLoadWithEnvManifest(t *testing.T) {
 
 func TestLoadWithLocalManifest(t *testing.T) {
 	dir := setupTestWorkspace(t, testDefaultXML, testLocalXML)
-	t.Setenv("FLEET_MANIFEST", filepath.Join(dir, "default.xml"))
+	t.Setenv("FLEET_MANIFEST", filepath.Join(dir, "fleet.xml"))
 	t.Setenv("FLEET_LOCAL_MANIFEST", "")
 
 	ws, err := Load()
@@ -82,7 +82,7 @@ func TestLoadWithLocalManifestEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Setenv("FLEET_MANIFEST", filepath.Join(dir, "default.xml"))
+	t.Setenv("FLEET_MANIFEST", filepath.Join(dir, "fleet.xml"))
 	t.Setenv("FLEET_LOCAL_MANIFEST", localPath)
 
 	ws, err := Load()

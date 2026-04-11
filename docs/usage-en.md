@@ -23,8 +23,8 @@ A workspace is a directory containing manifest files and multiple Git repositori
 
 ```
 workspace/
-├── default.xml              # Shared team config (committed to Git)
-├── local_manifest.xml       # Personal local overrides (gitignored)
+├── fleet.xml              # Shared team config (committed to Git)
+├── local_fleet.xml       # Personal local overrides (gitignored)
 └── services/
     ├── user-service/
     ├── order-service/
@@ -33,7 +33,7 @@ workspace/
 
 ### 2. Configure Manifests
 
-**default.xml** — Shared team configuration:
+**fleet.xml** — Shared team configuration:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -54,7 +54,7 @@ workspace/
 </manifest>
 ```
 
-**local_manifest.xml** — Personal fork configuration:
+**local_fleet.xml** — Personal fork configuration:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -111,7 +111,7 @@ fleet init [-g <group>]
 
 ```
   ▸ Default push remote: fork
-  ▸ Local manifest: /path/to/local_manifest.xml
+  ▸ Local manifest: /path/to/local_fleet.xml
 
 Initializing 5 projects...
   ✓ [1/5] services/user-service (cloned)
@@ -386,7 +386,7 @@ When `master-main-compat="true"` is set on `<default>`, Fleet automatically fall
 
 ### Merge Rules
 
-When `local_manifest.xml` exists, it is merged with `default.xml` according to these rules:
+When `local_fleet.xml` exists, it is merged with `fleet.xml` according to these rules:
 
 - **Remote** — Same-name remotes are fully replaced; new remotes are appended
 - **Default** — Per-attribute override (non-empty local attributes overwrite the corresponding base attributes)
@@ -407,11 +407,11 @@ An independent push remote is only configured when the push remote differs from 
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `FLEET_MANIFEST` | Path to main manifest file | `<workspace_root>/default.xml` |
-| `FLEET_LOCAL_MANIFEST` | Path to local override manifest | `<workspace_root>/local_manifest.xml` |
+| `FLEET_MANIFEST` | Path to main manifest file | `<workspace_root>/fleet.xml` |
+| `FLEET_LOCAL_MANIFEST` | Path to local override manifest | `<workspace_root>/local_fleet.xml` |
 
 ```bash
-FLEET_MANIFEST=~/custom/default.xml fleet status
+FLEET_MANIFEST=~/custom/fleet.xml fleet status
 FLEET_LOCAL_MANIFEST=~/custom/local.xml fleet init
 ```
 
@@ -423,8 +423,8 @@ FLEET_LOCAL_MANIFEST=~/custom/local.xml fleet init
 
 ```bash
 cd my-workspace
-# Create personal local_manifest.xml with fork remote
-vim local_manifest.xml
+# Create personal local_fleet.xml with fork remote
+vim local_fleet.xml
 # Initialize all repos
 fleet init
 # Or initialize only a specific group
@@ -458,10 +458,10 @@ fleet push --all
 
 ### Adding a New Service
 
-1. Add a `<project>` entry in `default.xml`
+1. Add a `<project>` entry in `fleet.xml`
 2. Run `fleet init` — the new repo is cloned; existing repos are unaffected
 
 ### Adding a Private Repository
 
-1. Add a `<project>` entry in `local_manifest.xml`
+1. Add a `<project>` entry in `local_fleet.xml`
 2. Run `fleet init`

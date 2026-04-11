@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	defaultManifestFile = "default.xml"
-	localManifestFile   = "local_manifest.xml"
+	defaultManifestFile = "fleet.xml"
+	localManifestFile   = "local_fleet.xml"
 )
 
 // Workspace holds the resolved workspace configuration.
@@ -103,7 +103,7 @@ func findManifestUpward() (string, error) {
 
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", fmt.Errorf("no workspace found (default.xml not found)")
+			return "", fmt.Errorf("no workspace found (fleet.xml not found)")
 		}
 		dir = parent
 	}
