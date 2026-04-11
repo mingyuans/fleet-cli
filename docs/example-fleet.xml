@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fleet Manifest Example
+  This file demonstrates all supported elements and attributes.
+  Copy this file to your workspace root as "fleet.xml" and customize it.
+-->
+<manifest>
+
+  <!--
+    <remote> — Define Git remote endpoints.
+    Attributes:
+      name   (required) — Unique identifier for this remote, referenced by <default> and <project>.
+      fetch  (required) — Base URL prefix. Clone URL = fetch + project.name + ".git".
+      review (optional) — Code review URL prefix (informational, not used by Fleet directly).
+  -->
+  <remote name="github"
+          fetch="git@github.com:my-org/"
+          review="https://github.com/my-org/" />
+
+  <remote name="fork"
+          fetch="git@github.com:your-username/" />
+
+  <!--
+    <default> — Default values inherited by all <project> entries.
+    Attributes:
+      remote            (optional) — Default fetch remote name.
+      revision          (optional) — Default branch to track (e.g. "master", "main").
+      sync-j            (optional) — Parallelism for clone/sync/push operations. Default: 4.
+      push              (optional) — Default push remote name. Only takes effect when
+                                     it differs from the fetch remote.
+      master-main-compat (optional) — When "true", automatically falls back between
+                                      "master" and "main" if the configured revision
+                                      is not found on the remote.
+  -->
+  <default remote="github"
+           revision="master"
+           sync-j="4"
+           push="fork"
+           master-main-compat="true" />
+
+  <!--
+    <project> — Define a managed Git repository.
+    Attributes:
+      name     (required) — Repository name. Used to construct clone/push URLs:
+                            clone_url = remote.fetch + name + ".git"
+                            push_url  = push_remote.fetch + name + ".git"
+      path     (required) — Local checkout path relative to the workspace root.
+      groups   (optional) — Comma-separated group tags for filtering with -g flag.
+                            Supports "," (OR) and "+" (AND) in filter expressions:
+                              -g "core,web"           → core OR web
+                              -g "core+backend"       → core AND backend
+                              -g "core+backend,infra" → (core AND backend) OR infra
+      remote   (optional) — Override fetch remote for this project. Inherits from <default>.
+      revision (optional) — Override default branch for this project. Inherits from <default>.
+      push     (optional) — Override push remote for this project. Inherits from <default>.
+  -->
+
+  <!-- Minimal: inherits all defaults (remote, revision, push) -->
+  <project name="user-service"
+           path="services/user-service" />
+
+  <!-- With groups for filtering -->
+  <project name="order-service"
+           path="services/order-service"
+           groups="commerce,backend" />
+
+  <!-- Override remote and revision per project -->
+  <project name="shared-proto"
+           path="libs/shared-proto"
+           remote="github"
+           revision="main"
+           groups="infra" />
+
+  <!-- Override push remote per project -->
+  <project name="internal-tool"
+           path="tools/internal-tool"
+           push="github"
+           groups="tools" />
+
+</manifest>
