@@ -1,6 +1,6 @@
 # Fleet User Guide
 
-Fleet is a multi-repo workspace management tool written in Go. It declaratively manages multiple Git repositories via manifest XML files, supporting batch clone, sync, status, push, and cross-repo command execution under the GitHub Fork workflow.
+Fleet is a multi-repo workspace management tool written in Go. It declaratively manages multiple Git repositories via manifest XML files, supporting batch clone, sync, branch management, push, PR creation, and cross-repo command execution under the GitHub Fork workflow.
 
 ## Installation
 
@@ -78,11 +78,19 @@ fleet init
 fleet <command> [options]
 
 Options:
-  -g, --group <group>   Filter projects by group
+  -g, --group <expr>    Filter projects by group expression
   -h, --help            Show help
 ```
 
 All subcommands support the `-g` flag to filter projects by their `groups` attribute.
+
+**Group filter expressions** support `,` for OR and `+` for AND:
+
+| Expression | Meaning |
+|------------|---------|
+| `feed,be` | Projects in group `feed` **OR** `be` |
+| `feed+be` | Projects in group `feed` **AND** `be` |
+| `feed+be,products` | (`feed` AND `be`) **OR** `products` |
 
 ---
 
@@ -158,11 +166,11 @@ fleet status [-g <group>]
 **Example output:**
 
 ```
-PROJECT                  BRANCH              STATUS     AHEAD/BEHIND
-──────────────────────────────────────────────────────────────────────
-user-service             master              clean
-order-service            feature/new-api     dirty      +3 -1
-payment-gateway          –                   not cloned
+PROJECT              BRANCH              STATUS     AHEAD/BEHIND  FETCH              PUSH
+─────────────────────────────────────────────────────────────────────────────────────────────
+user-service         master              clean                    github/master      fork
+order-service        feature/new-api     dirty      +3 -1        github/master      fork
+payment-gateway      –                   not cloned               github/master      fork
 ```
 
 **Color rules:**
@@ -198,6 +206,102 @@ Pushing 3 projects...
   – [3/3] services/svc-a (skipped)
 
 1 pushed, 2 skipped
+```
+
+---
+
+### `fleet start`
+
+Create and switch to a new branch across all repositories, based on the upstream default branch.
+
+```bash
+fleet start [-g <group>] <branch>
+```
+
+**Behavior:**
+
+- Already on the target branch → skip
+- Target branch already exists locally → switch to it (`git checkout`)
+- Target branch does not exist → fetch from remote, then create from `<remote>/<default-branch>` (`git checkout -b`)
+- Supports `master-main-compat`: if `master` is not found on the remote, automatically tries `main` (and vice versa)
+
+**Example output:**
+
+```
+Starting branch feature/new-api across 3 projects...
+  ✓ [1/3] services/user-service (created from github/master)
+  ✓ [2/3] services/order-service (switched)
+  – [3/3] services/svc-a (skipped: not cloned)
+
+1 created, 1 switched, 1 skipped
+```
+
+---
+
+### `fleet finish`
+
+Delete a branch and switch back to the default branch across all repositories.
+
+```bash
+fleet finish [-g <group>] [-r] <branch>
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `-r, --remote` | Also delete the branch on the push remote |
+
+**Behavior:**
+
+- Branch does not exist locally → skip
+- Currently on the target branch → switch to the default branch first, then delete
+- `-r` flag → also runs `git push <push-remote> --delete <branch>`
+
+**Example output:**
+
+```
+Finishing branch feature/new-api across 3 projects...
+  ✓ [1/3] services/user-service (finished)
+  – [2/3] services/order-service (skipped: branch feature/new-api not found)
+  – [3/3] services/svc-a (skipped: not cloned)
+
+1 finished, 2 skipped
+```
+
+---
+
+### `fleet pr`
+
+Push the current branch and create a pull request via `gh` CLI across all repositories.
+
+```bash
+fleet pr [-g <group>] [-t <title>]
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `-t, --title` | PR title (defaults to branch name) |
+
+**Prerequisites:** Requires the [GitHub CLI (`gh`)](https://cli.github.com/) to be installed and authenticated.
+
+**Behavior:**
+
+- Pushes the current branch to the push remote
+- Creates a PR targeting the upstream default branch (fetch remote)
+- For fork workflows, automatically sets `--head` to `<fork-owner>:<branch>`
+- Skips repos on the default branch, with detached HEAD, or without a push remote
+
+**Example output:**
+
+```
+Creating PRs for 2 projects...
+  ✓ [1/2] services/user-service (created https://github.com/my-org/user-service/pull/42)
+  – [2/2] services/order-service (skipped: on default branch)
+
+1 created, 1 skipped
 ```
 
 ---
@@ -244,6 +348,24 @@ A command failure in one project does not interrupt the overall flow — a warni
 
 ---
 
+### `fleet ide-setup idea`
+
+Generate IntelliJ IDEA / GoLand VCS directory mappings for all repositories in the workspace.
+
+```bash
+fleet ide-setup idea [-g <group>]
+```
+
+**Behavior:**
+
+- Creates `.idea/vcs.xml` in the workspace root
+- Adds a VCS mapping for the root project and each cloned sub-project
+- Uncloned projects are skipped
+
+This allows IntelliJ-based IDEs to recognize all repos when opening the workspace root as a project.
+
+---
+
 ## Manifest Configuration
 
 ### Element Reference
@@ -251,8 +373,16 @@ A command failure in one project does not interrupt the overall flow — a warni
 | Element | Description |
 |---------|-------------|
 | `<remote>` | Defines a Git remote endpoint (`name`, `fetch`, `review`) |
-| `<default>` | Default values for all projects (`remote`, `revision`, `sync-j`, `push`) |
+| `<default>` | Default values for all projects (`remote`, `revision`, `sync-j`, `push`, `master-main-compat`) |
 | `<project>` | Defines a managed Git repository (`name`, `path`, `groups`, `remote`, `revision`, `push`) |
+
+### `master-main-compat` Attribute
+
+When `master-main-compat="true"` is set on `<default>`, Fleet automatically falls back between `master` and `main` if the configured revision branch is not found on the remote. This is useful for workspaces where some repos use `master` and others use `main`.
+
+```xml
+<default remote="github" revision="master" sync-j="4" master-main-compat="true" />
+```
 
 ### Merge Rules
 
@@ -310,8 +440,17 @@ fleet status
 # Sync from upstream
 fleet sync
 
+# Start a new feature branch across all repos
+fleet start feature/my-feature
+
 # Push feature branches to fork
 fleet push
+
+# Push and create PRs
+fleet pr -t "feat: my feature"
+
+# Clean up after merge
+fleet finish feature/my-feature
 
 # Push including default branch
 fleet push --all

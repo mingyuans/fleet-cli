@@ -1,6 +1,6 @@
 # Fleet 使用说明
 
-Fleet 是一个多仓库工作区管理工具，使用 Go 编写。它通过 manifest XML 文件声明式管理多个 Git 仓库，支持 GitHub Fork 工作流下的批量 clone、sync、status、push 和跨仓库命令执行。
+Fleet 是一个多仓库工作区管理工具，使用 Go 编写。它通过 manifest XML 文件声明式管理多个 Git 仓库，支持 GitHub Fork 工作流下的批量 clone、sync、分支管理、push、PR 创建和跨仓库命令执行。
 
 ## 安装
 
@@ -78,11 +78,19 @@ fleet init
 fleet <command> [options]
 
 选项:
-  -g, --group <group>   按 group 过滤项目
+  -g, --group <expr>    按 group 表达式过滤项目
   -h, --help            显示帮助信息
 ```
 
 所有子命令均支持 `-g` 参数，用于按项目的 `groups` 属性过滤。
+
+**Group 过滤表达式**支持 `,` 表示 OR、`+` 表示 AND：
+
+| 表达式 | 含义 |
+|--------|------|
+| `feed,be` | 属于 `feed` **或** `be` 组的项目 |
+| `feed+be` | 同时属于 `feed` **和** `be` 组的项目 |
+| `feed+be,products` | (`feed` 且 `be`) **或** `products` |
 
 ---
 
@@ -158,11 +166,11 @@ fleet status [-g <group>]
 **输出示例：**
 
 ```
-PROJECT                  BRANCH              STATUS     AHEAD/BEHIND
-──────────────────────────────────────────────────────────────────────
-user-service             master              clean
-order-service            feature/new-api     dirty      +3 -1
-payment-gateway          –                   not cloned
+PROJECT              BRANCH              STATUS     AHEAD/BEHIND  FETCH              PUSH
+─────────────────────────────────────────────────────────────────────────────────────────────
+user-service         master              clean                    github/master      fork
+order-service        feature/new-api     dirty      +3 -1        github/master      fork
+payment-gateway      –                   not cloned               github/master      fork
 ```
 
 **颜色规则：**
@@ -198,6 +206,102 @@ Pushing 3 projects...
   – [3/3] services/svc-a (skipped)
 
 1 pushed, 2 skipped
+```
+
+---
+
+### `fleet start`
+
+在所有仓库中创建并切换到一个基于上游默认分支的新分支。
+
+```bash
+fleet start [-g <group>] <branch>
+```
+
+**行为：**
+
+- 已在目标分支上 → 跳过
+- 目标分支已存在 → 切换到该分支（`git checkout`）
+- 目标分支不存在 → 从 remote fetch 最新代码，基于 `<remote>/<default-branch>` 创建（`git checkout -b`）
+- 支持 `master-main-compat`：若 `master` 在 remote 上不存在，自动尝试 `main`（反之亦然）
+
+**输出示例：**
+
+```
+Starting branch feature/new-api across 3 projects...
+  ✓ [1/3] services/user-service (created from github/master)
+  ✓ [2/3] services/order-service (switched)
+  – [3/3] services/svc-a (skipped: not cloned)
+
+1 created, 1 switched, 1 skipped
+```
+
+---
+
+### `fleet finish`
+
+在所有仓库中删除指定分支并切回默认分支。
+
+```bash
+fleet finish [-g <group>] [-r] <branch>
+```
+
+**选项：**
+
+| 参数 | 说明 |
+|------|------|
+| `-r, --remote` | 同时删除 push remote 上的远程分支 |
+
+**行为：**
+
+- 本地不存在该分支 → 跳过
+- 当前在目标分支上 → 先切回默认分支，再删除
+- 使用 `-r` 参数 → 同时执行 `git push <push-remote> --delete <branch>`
+
+**输出示例：**
+
+```
+Finishing branch feature/new-api across 3 projects...
+  ✓ [1/3] services/user-service (finished)
+  – [2/3] services/order-service (skipped: branch feature/new-api not found)
+  – [3/3] services/svc-a (skipped: not cloned)
+
+1 finished, 2 skipped
+```
+
+---
+
+### `fleet pr`
+
+推送当前分支并通过 `gh` CLI 创建 Pull Request。
+
+```bash
+fleet pr [-g <group>] [-t <title>]
+```
+
+**选项：**
+
+| 参数 | 说明 |
+|------|------|
+| `-t, --title` | PR 标题（默认使用分支名） |
+
+**前置条件：** 需要安装并认证 [GitHub CLI (`gh`)](https://cli.github.com/)。
+
+**行为：**
+
+- 将当前分支推送到 push remote
+- 创建 PR，目标为上游默认分支（fetch remote）
+- Fork 工作流下自动设置 `--head` 为 `<fork-owner>:<branch>`
+- 跳过处于默认分支、detached HEAD 或无 push remote 的仓库
+
+**输出示例：**
+
+```
+Creating PRs for 2 projects...
+  ✓ [1/2] services/user-service (created https://github.com/my-org/user-service/pull/42)
+  – [2/2] services/order-service (skipped: on default branch)
+
+1 created, 1 skipped
 ```
 
 ---
@@ -244,6 +348,24 @@ fleet forall -c "go mod tidy"
 
 ---
 
+### `fleet ide-setup idea`
+
+为工作区中的所有仓库生成 IntelliJ IDEA / GoLand 的 VCS 目录映射。
+
+```bash
+fleet ide-setup idea [-g <group>]
+```
+
+**行为：**
+
+- 在工作区根目录创建 `.idea/vcs.xml`
+- 为根项目和每个已 clone 的子项目添加 VCS 映射
+- 未 clone 的项目自动跳过
+
+使用此命令后，IntelliJ 系列 IDE 打开工作区根目录即可识别所有仓库。
+
+---
+
 ## Manifest 配置
 
 ### 标签说明
@@ -251,8 +373,16 @@ fleet forall -c "go mod tidy"
 | 标签 | 说明 |
 |------|------|
 | `<remote>` | 定义一个 Git remote 端点（`name`、`fetch`、`review`） |
-| `<default>` | 所有项目的默认值（`remote`、`revision`、`sync-j`、`push`） |
+| `<default>` | 所有项目的默认值（`remote`、`revision`、`sync-j`、`push`、`master-main-compat`） |
 | `<project>` | 定义一个 Git 仓库（`name`、`path`、`groups`、`remote`、`revision`、`push`） |
+
+### `master-main-compat` 属性
+
+当 `<default>` 上设置 `master-main-compat="true"` 时，Fleet 会在 remote 上找不到配置的 revision 分支时，自动在 `master` 和 `main` 之间回退。适用于工作区中部分仓库用 `master`、部分用 `main` 的场景。
+
+```xml
+<default remote="github" revision="master" sync-j="4" master-main-compat="true" />
+```
 
 ### 合并规则
 
@@ -310,8 +440,17 @@ fleet status
 # 同步上游代码
 fleet sync
 
+# 在所有仓库创建并切换到新 feature 分支
+fleet start feature/my-feature
+
 # 推送 feature branch 到 fork
 fleet push
+
+# 推送并创建 PR
+fleet pr -t "feat: my feature"
+
+# 合并后清理分支
+fleet finish feature/my-feature
 
 # 推送包括默认分支
 fleet push --all
