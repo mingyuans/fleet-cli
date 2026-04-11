@@ -15,6 +15,10 @@ var rootCmd = &cobra.Command{
 	Long:  "fleet manages multiple Git repositories in a workspace using manifest files.",
 }
 
+func SetVersion(v string) {
+	rootCmd.Version = v
+}
+
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
