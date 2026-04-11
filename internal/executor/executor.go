@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 	"sync"
@@ -26,15 +25,13 @@ type Result struct {
 	Status  ResultStatus
 	Label   string // e.g. "cloned", "configured", "skipped", "fetched", "rebased"
 	Message string // error or info message
-	Output  string // buffered output
 }
 
 // LogFunc is a thread-safe function for printing progress messages within a project operation.
 type LogFunc func(format string, args ...any)
 
 // ProjectFunc is the function executed for each project.
-// It receives the project, a buffered writer, and a log function for real-time progress output.
-type ProjectFunc func(proj manifest.ResolvedProject, buf *bytes.Buffer, log LogFunc) (label string, status ResultStatus, message string)
+type ProjectFunc func(proj manifest.ResolvedProject, log LogFunc) (label string, status ResultStatus, message string)
 
 // Run executes fn for each project in parallel with concurrency limit.
 // Results are printed in real-time as each project completes.
@@ -64,14 +61,12 @@ func Run(projects []manifest.ResolvedProject, concurrency int, fn ProjectFunc) [
 				printMu.Unlock()
 			}
 
-			var buf bytes.Buffer
-			label, status, message := fn(p, &buf, log)
+			label, status, message := fn(p, log)
 			results[idx] = Result{
 				Project: p,
 				Status:  status,
 				Label:   label,
 				Message: message,
-				Output:  buf.String(),
 			}
 
 			completed := int(done.Add(1))
@@ -101,9 +96,6 @@ func printResult(prefix string, r Result) {
 		}
 	case StatusFail:
 		output.Error("%s %s: %s", prefix, r.Project.Path, r.Message)
-	}
-	if r.Output != "" {
-		fmt.Print(r.Output)
 	}
 }
 

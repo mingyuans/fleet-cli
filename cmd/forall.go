@@ -40,15 +40,15 @@ func runForall(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("either -c <command> or -- <command> [args...] is required")
 	}
 
+	baseEnv := os.Environ()
+
 	for _, proj := range projects {
 		projDir := filepath.Join(ws.Root, proj.Path)
 
-		// Skip uncloned
 		if _, err := os.Stat(projDir); os.IsNotExist(err) {
 			continue
 		}
 
-		// Print project header
 		fmt.Printf("\n%s %s (%s)\n", output.Bold(output.IconInfo), output.Bold(proj.Name), proj.Path)
 
 		var c *exec.Cmd
@@ -60,7 +60,7 @@ func runForall(cmd *cobra.Command, args []string) error {
 		c.Dir = projDir
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr
-		c.Env = append(os.Environ(),
+		c.Env = append(baseEnv,
 			"FLEET_PROJECT_NAME="+proj.Name,
 			"FLEET_PROJECT_PATH="+proj.Path,
 			"FLEET_PROJECT_GROUPS="+strings.Join(proj.Groups, ","),

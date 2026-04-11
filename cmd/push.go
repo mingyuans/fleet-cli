@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 
@@ -46,7 +45,7 @@ func runPush(cmd *cobra.Command, args []string) error {
 	}
 	output.Header("Pushing %d projects...", len(projects))
 
-	results := executor.Run(projects, ws.SyncJ, func(proj manifest.ResolvedProject, buf *bytes.Buffer, log executor.LogFunc) (string, executor.ResultStatus, string) {
+	results := executor.Run(projects, ws.SyncJ, func(proj manifest.ResolvedProject, log executor.LogFunc) (string, executor.ResultStatus, string) {
 		return pushProject(ws.Root, proj, log)
 	})
 

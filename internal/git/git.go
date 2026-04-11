@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"os/exec"
@@ -8,7 +9,6 @@ import (
 	"strings"
 )
 
-// Clone clones a repository.
 func Clone(url, path, origin, branch string) error {
 	return run(".", "git", "clone", url, path, "--origin", origin, "-b", branch)
 }
@@ -28,29 +28,25 @@ func CloneWithProgress(url, path, origin, branch string, onProgress func(string)
 		return fmt.Errorf("starting git clone: %w", err)
 	}
 
-	// Git progress uses \r to overwrite lines, read byte-by-byte and split on \r or \n.
-	buf := make([]byte, 0, 256)
-	tmp := make([]byte, 1)
+	// Git progress uses \r to overwrite lines; use buffered reader for efficiency.
+	reader := bufio.NewReader(stderr)
+	var lineBuf []byte
 	for {
-		n, readErr := stderr.Read(tmp)
-		if n > 0 {
-			ch := tmp[0]
-			if ch == '\r' || ch == '\n' {
-				line := strings.TrimSpace(string(buf))
-				if line != "" && onProgress != nil {
-					onProgress(line)
-				}
-				buf = buf[:0]
-			} else {
-				buf = append(buf, ch)
-			}
-		}
+		b, readErr := reader.ReadByte()
 		if readErr != nil {
 			break
 		}
+		if b == '\r' || b == '\n' {
+			line := strings.TrimSpace(string(lineBuf))
+			if line != "" && onProgress != nil {
+				onProgress(line)
+			}
+			lineBuf = lineBuf[:0]
+		} else {
+			lineBuf = append(lineBuf, b)
+		}
 	}
-	// Flush remaining
-	if line := strings.TrimSpace(string(buf)); line != "" && onProgress != nil {
+	if line := strings.TrimSpace(string(lineBuf)); line != "" && onProgress != nil {
 		onProgress(line)
 	}
 
@@ -60,27 +56,22 @@ func CloneWithProgress(url, path, origin, branch string, onProgress func(string)
 	return nil
 }
 
-// RemoteAdd adds a new remote.
 func RemoteAdd(dir, name, url string) error {
 	return run(dir, "git", "remote", "add", name, url)
 }
 
-// RemoteSetURL sets the URL for an existing remote.
 func RemoteSetURL(dir, name, url string) error {
 	return run(dir, "git", "remote", "set-url", name, url)
 }
 
-// RemoteGetURL returns the fetch URL for a remote.
 func RemoteGetURL(dir, name string) (string, error) {
 	return output(dir, "git", "remote", "get-url", name)
 }
 
-// ConfigSet sets a git config value.
 func ConfigSet(dir, key, value string) error {
 	return run(dir, "git", "config", key, value)
 }
 
-// Fetch fetches from a remote.
 func Fetch(dir, remote string) error {
 	return run(dir, "git", "fetch", remote)
 }
@@ -90,7 +81,6 @@ func PullRebase(dir, remote, branch string) error {
 	return run(dir, "git", "pull", "--rebase", remote, branch)
 }
 
-// Push pushes a branch to a remote.
 func Push(dir, remote, branch string) error {
 	return run(dir, "git", "push", remote, branch)
 }
@@ -106,7 +96,6 @@ func CurrentBranch(dir string) (string, error) {
 	return out, nil
 }
 
-// StatusPorcelain returns the porcelain status output.
 func StatusPorcelain(dir string) (string, error) {
 	return output(dir, "git", "status", "--porcelain")
 }
@@ -133,13 +122,11 @@ func AheadBehind(dir, remote, branch string) (ahead, behind int, err error) {
 	return ahead, behind, nil
 }
 
-// BranchExists checks if a local branch exists.
 func BranchExists(dir, branch string) bool {
 	_, err := output(dir, "git", "rev-parse", "--verify", "refs/heads/"+branch)
 	return err == nil
 }
 
-// CheckoutBranch switches to an existing local branch.
 func CheckoutBranch(dir, branch string) error {
 	return run(dir, "git", "checkout", branch)
 }
@@ -149,23 +136,19 @@ func CreateBranchFrom(dir, branch, startPoint string) error {
 	return run(dir, "git", "checkout", "-b", branch, startPoint)
 }
 
-// DeleteBranch deletes a local branch (-D force delete).
 func DeleteBranch(dir, branch string) error {
 	return run(dir, "git", "branch", "-D", branch)
 }
 
-// DeleteRemoteBranch deletes a branch on a remote.
 func DeleteRemoteBranch(dir, remote, branch string) error {
 	return run(dir, "git", "push", remote, "--delete", branch)
 }
 
-// RemoteRefExists checks if a remote ref (e.g. origin/main) exists.
 func RemoteRefExists(dir, ref string) bool {
 	_, err := output(dir, "git", "rev-parse", "--verify", "refs/remotes/"+ref)
 	return err == nil
 }
 
-// RemoteExists checks if a remote exists in the repository.
 func RemoteExists(dir, name string) bool {
 	_, err := output(dir, "git", "remote", "get-url", name)
 	return err == nil

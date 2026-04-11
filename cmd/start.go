@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 
@@ -38,7 +37,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 	output.Header("Starting branch %s across %d projects...", output.Bold(branch), len(projects))
 
-	results := executor.Run(projects, ws.SyncJ, func(proj manifest.ResolvedProject, buf *bytes.Buffer, log executor.LogFunc) (string, executor.ResultStatus, string) {
+	results := executor.Run(projects, ws.SyncJ, func(proj manifest.ResolvedProject, log executor.LogFunc) (string, executor.ResultStatus, string) {
 		return startProject(ws.Root, proj, branch, log)
 	})
 

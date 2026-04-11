@@ -31,3 +31,14 @@ func masterMainPeer(branch string) string {
 		return ""
 	}
 }
+
+// resolveRemote returns the remote name to use, falling back to "origin".
+func resolveRemote(dir, preferred string) string {
+	if git.RemoteExists(dir, preferred) {
+		return preferred
+	}
+	if git.RemoteExists(dir, "origin") {
+		return "origin"
+	}
+	return ""
+}

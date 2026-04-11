@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"bytes"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -26,7 +25,7 @@ func TestRunConcurrencyLimit(t *testing.T) {
 	var maxConcurrent atomic.Int32
 	var current atomic.Int32
 
-	results := Run(projects, 3, func(proj manifest.ResolvedProject, buf *bytes.Buffer, log LogFunc) (string, ResultStatus, string) {
+	results := Run(projects, 3, func(proj manifest.ResolvedProject, log LogFunc) (string, ResultStatus, string) {
 		c := current.Add(1)
 		for {
 			prev := maxConcurrent.Load()
@@ -50,7 +49,7 @@ func TestRunConcurrencyLimit(t *testing.T) {
 func TestRunResultOrdering(t *testing.T) {
 	projects := makeProjects(5)
 
-	results := Run(projects, 2, func(proj manifest.ResolvedProject, buf *bytes.Buffer, log LogFunc) (string, ResultStatus, string) {
+	results := Run(projects, 2, func(proj manifest.ResolvedProject, log LogFunc) (string, ResultStatus, string) {
 		return proj.Name, StatusSuccess, ""
 	})
 
@@ -65,7 +64,7 @@ func TestRunResultOrdering(t *testing.T) {
 func TestRunMixedResults(t *testing.T) {
 	projects := makeProjects(3)
 
-	results := Run(projects, 4, func(proj manifest.ResolvedProject, buf *bytes.Buffer, log LogFunc) (string, ResultStatus, string) {
+	results := Run(projects, 4, func(proj manifest.ResolvedProject, log LogFunc) (string, ResultStatus, string) {
 		switch proj.Name {
 		case "proj-0":
 			return "cloned", StatusSuccess, ""

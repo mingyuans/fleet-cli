@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 
@@ -41,7 +40,7 @@ func runFinish(cmd *cobra.Command, args []string) error {
 	}
 	output.Header("Finishing branch %s across %d projects...", output.Bold(branch), len(projects))
 
-	results := executor.Run(projects, ws.SyncJ, func(proj manifest.ResolvedProject, buf *bytes.Buffer, log executor.LogFunc) (string, executor.ResultStatus, string) {
+	results := executor.Run(projects, ws.SyncJ, func(proj manifest.ResolvedProject, log executor.LogFunc) (string, executor.ResultStatus, string) {
 		return finishProject(ws.Root, proj, branch, log)
 	})
 

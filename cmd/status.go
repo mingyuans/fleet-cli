@@ -44,10 +44,9 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		}
 
 		if _, err := os.Stat(projDir); os.IsNotExist(err) {
-			grey := "\033[90m"
 			table.AddRow(
 				[]string{proj.Name, "–", "not cloned", "", fetch, push},
-				[]string{grey, grey, grey, grey, grey, grey},
+				[]string{output.ColorGrey, output.ColorGrey, output.ColorGrey, output.ColorGrey, output.ColorGrey, output.ColorGrey},
 			)
 			continue
 		}
@@ -71,14 +70,14 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		var statusColor string
 		if status != "" {
 			statusText = "dirty"
-			statusColor = "\033[33m" // yellow
+			statusColor = output.ColorYellow
 		} else {
-			statusColor = "\033[32m" // green
+			statusColor = output.ColorGreen
 		}
 
 		var branchColor string
 		if branch != proj.Revision && branch != "(detached)" {
-			branchColor = "\033[33m" // yellow for non-default branch
+			branchColor = output.ColorYellow
 		}
 
 		// Ahead/behind

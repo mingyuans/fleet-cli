@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 
@@ -35,7 +34,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 	output.Header("Syncing %d projects...", len(projects))
 
-	results := executor.Run(projects, ws.SyncJ, func(proj manifest.ResolvedProject, buf *bytes.Buffer, log executor.LogFunc) (string, executor.ResultStatus, string) {
+	results := executor.Run(projects, ws.SyncJ, func(proj manifest.ResolvedProject, log executor.LogFunc) (string, executor.ResultStatus, string) {
 		return syncProject(ws.Root, proj, log)
 	})
 
@@ -81,15 +80,4 @@ func syncProject(root string, proj manifest.ResolvedProject, log executor.LogFun
 		return "failed", executor.StatusFail, err.Error()
 	}
 	return "fetched", executor.StatusSuccess, ""
-}
-
-// resolveRemote returns the remote name to use, falling back to "origin".
-func resolveRemote(dir, preferred string) string {
-	if git.RemoteExists(dir, preferred) {
-		return preferred
-	}
-	if git.RemoteExists(dir, "origin") {
-		return "origin"
-	}
-	return ""
 }

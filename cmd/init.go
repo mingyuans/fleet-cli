@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,7 +45,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	output.Header("Initializing %d projects...", len(projects))
 
-	results := executor.Run(projects, ws.SyncJ, func(proj manifest.ResolvedProject, buf *bytes.Buffer, log executor.LogFunc) (string, executor.ResultStatus, string) {
+	results := executor.Run(projects, ws.SyncJ, func(proj manifest.ResolvedProject, log executor.LogFunc) (string, executor.ResultStatus, string) {
 		return initProject(ws.Root, proj, log)
 	})
 

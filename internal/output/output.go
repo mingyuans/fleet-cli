@@ -34,14 +34,23 @@ func IsTTY() bool {
 	return isTTY
 }
 
-// ANSI color codes
+// ANSI color codes (exported for Table cell coloring; unexported aliases below)
 const (
-	reset  = "\033[0m"
-	bold   = "\033[1m"
-	red    = "\033[31m"
-	green  = "\033[32m"
-	yellow = "\033[33m"
-	grey   = "\033[90m"
+	ColorReset  = "\033[0m"
+	ColorBold   = "\033[1m"
+	ColorRed    = "\033[31m"
+	ColorGreen  = "\033[32m"
+	ColorYellow = "\033[33m"
+	ColorGrey   = "\033[90m"
+)
+
+const (
+	reset  = ColorReset
+	bold   = ColorBold
+	red    = ColorRed
+	green  = ColorGreen
+	yellow = ColorYellow
+	grey   = ColorGrey
 )
 
 func colorize(color, text string) string {
