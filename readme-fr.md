@@ -65,7 +65,6 @@ fleet init
 | `fleet push` | Pousser la branche courante vers le fork (`--all` pour inclure la branche par défaut) |
 | `fleet pr` | Pousser et créer des PR via le CLI `gh` (`-t` pour définir le titre) |
 | `fleet forall -c "cmd"` | Exécuter une commande shell dans tous les dépôts |
-| `fleet ide-setup idea` | Générer les mappings VCS IntelliJ/GoLand |
 
 Toutes les commandes supportent `-g <expr>` pour filtrer par groupe (`,` = OU, `+` = ET).
 
