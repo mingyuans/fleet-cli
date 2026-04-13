@@ -151,6 +151,8 @@ func DeleteBranch(dir, branch string) error {
 }
 
 // ListMergedBranches returns local branches fully merged into mergeBase (e.g. "origin/main").
+// Branches currently checked out in a worktree (prefixed with "+ ") are excluded because
+// git refuses to delete them while they are in use.
 // Protected branches and the mergeBase branch name itself are NOT filtered here; callers must filter.
 func ListMergedBranches(dir, mergeBase string) ([]string, error) {
 	out, err := output(dir, "git", "branch", "--merged", mergeBase)
@@ -162,7 +164,14 @@ func ListMergedBranches(dir, mergeBase string) ([]string, error) {
 	}
 	var branches []string
 	for _, line := range strings.Split(out, "\n") {
-		line = strings.TrimPrefix(strings.TrimSpace(line), "* ")
+		line = strings.TrimSpace(line)
+		// Worktree-checked-out branches are prefixed with "+ "; skip them because
+		// git refuses to delete a branch that is active in another worktree.
+		if strings.HasPrefix(line, "+ ") {
+			continue
+		}
+		// Strip the current-branch marker ("* ") to get the bare branch name.
+		line = strings.TrimPrefix(line, "* ")
 		if line != "" {
 			branches = append(branches, line)
 		}
