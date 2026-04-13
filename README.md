@@ -64,6 +64,7 @@ fleet init
 | `fleet finish <branch>` | Delete a branch and switch back to default (`-r` to delete remote too) |
 | `fleet push` | Push current branch to fork (`--all` to include default branch) |
 | `fleet pr` | Push and create PRs via `gh` CLI (`-t` to set title) |
+| `fleet worktree <name>` | Create a git worktree for every repo under a shared base directory |
 | `fleet forall -c "cmd"` | Run a shell command in every repo |
 | `fleet ide-setup idea` | Generate IntelliJ/GoLand VCS mappings |
 
@@ -103,8 +104,8 @@ See [docs/example-fleet.xml](docs/example-fleet.xml) for a fully annotated examp
 | Element | Attributes |
 |---------|------------|
 | `<remote>` | `name`, `fetch`, `review` |
-| `<default>` | `remote`, `revision`, `sync-j`, `push`, `master-main-compat` |
-| `<project>` | `name`, `path`, `groups`, `remote`, `revision`, `push` |
+| `<default>` | `remote`, `revision`, `sync-j`, `push`, `master-main-compat`, `worktree-base`, `worktree-copy` |
+| `<project>` | `name`, `path`, `groups`, `remote`, `revision`, `push`, `worktree-copy` |
 
 Set `master-main-compat="true"` on `<default>` to auto-fallback between `master` and `main`.
 

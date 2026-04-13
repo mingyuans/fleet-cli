@@ -306,6 +306,71 @@ Creating PRs for 2 projects...
 
 ---
 
+### `fleet worktree`
+
+为所有受管理仓库在共享基础目录下创建 git worktree，目录结构与原始工作区保持一致。
+
+```bash
+fleet worktree <name> [-b <branch>] [-r <revision>] [-g <group>]
+```
+
+**选项：**
+
+| 参数 | 说明 |
+|------|------|
+| `-b, --branch` | 要创建或切换的分支名（默认：与 `name` 相同） |
+| `-r, --revision` | 新分支的基础 upstream revision（默认：各项目在 fleet.xml 中配置的 `revision`） |
+
+**使用场景：** 在不切换主工作区分支的情况下，并行开发另一个需求。每个仓库的 worktree 创建在 `<worktree-base>/<name>/<proj.path>` 下，目录结构与原工作区完全对应。
+
+**配置** — 在 `fleet.xml` 的 `<default>` 中添加 `worktree-base`（必填）和 `worktree-copy`（可选）：
+
+```xml
+<default remote="github"
+         revision="main"
+         sync-j="4"
+         worktree-base="~/worktrees/myproject"
+         worktree-copy=".env,.env.*" />
+```
+
+| 属性 | 说明 |
+|------|------|
+| `worktree-base` | 所有 worktree 的基础目录，支持 `~` 展开。使用 `fleet worktree` 命令时必填。 |
+| `worktree-copy` | 逗号分隔的 glob 表达式，用于指定创建 worktree 后需要从原仓库复制的 gitignored 文件（如 `.env`）。所有项目默认继承此配置，单个 `<project>` 可通过自身的 `worktree-copy` 属性完全覆盖。 |
+
+**行为：**
+
+- Worktree 创建在 `<worktree-base>/<name>/<proj.path>` 路径下
+- 若分支在本地不存在，则基于 `<remote>/<revision>` 创建新分支
+- `-r` 参数可覆盖各项目的 `revision` 字段，作为新分支的基础
+- workspace 根项目（`path="."`）优先处理，避免与并行执行的 service 项目产生目录竞争
+- 创建完成后，将 `worktree-copy` 匹配的文件从源仓库复制到新 worktree
+- 目标路径的 worktree 已存在 → 跳过
+
+**输出示例：**
+
+```
+Creating worktree JIRA-123 across 3 projects...
+  ✓ [1/3] . (created)
+  ✓ [2/3] services/user-service (created)
+  ✓ [3/3] services/order-service (created)
+
+3 created
+```
+
+创建后的 worktree 工作区与原始目录结构完全对应：
+
+```
+~/worktrees/myproject/
+└── JIRA-123/
+    ├── .                      ← workspace 仓库的 worktree
+    └── services/
+        ├── user-service/      ← 基于 JIRA-123 分支的 worktree
+        └── order-service/     ← 基于 JIRA-123 分支的 worktree
+```
+
+---
+
 ### `fleet forall`
 
 在所有仓库中执行指定命令。
@@ -373,8 +438,8 @@ fleet ide-setup idea [-g <group>]
 | 标签 | 说明 |
 |------|------|
 | `<remote>` | 定义一个 Git remote 端点（`name`、`fetch`、`review`） |
-| `<default>` | 所有项目的默认值（`remote`、`revision`、`sync-j`、`push`、`master-main-compat`） |
-| `<project>` | 定义一个 Git 仓库（`name`、`path`、`groups`、`remote`、`revision`、`push`） |
+| `<default>` | 所有项目的默认值（`remote`、`revision`、`sync-j`、`push`、`master-main-compat`、`worktree-base`、`worktree-copy`） |
+| `<project>` | 定义一个 Git 仓库（`name`、`path`、`groups`、`remote`、`revision`、`push`、`worktree-copy`） |
 
 ### `master-main-compat` 属性
 

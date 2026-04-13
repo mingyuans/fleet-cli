@@ -306,6 +306,71 @@ Creating PRs for 2 projects...
 
 ---
 
+### `fleet worktree`
+
+Create a git worktree for every managed repository under a shared base directory, mirroring the original workspace structure.
+
+```bash
+fleet worktree <name> [-b <branch>] [-r <revision>] [-g <group>]
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `-b, --branch` | Branch name to create or check out (default: same as `name`) |
+| `-r, --revision` | Upstream revision to base the new branch on (default: each project's `revision` in fleet.xml) |
+
+**Use case:** Work on a second feature in parallel without switching branches in your main workspace. Each repo gets a worktree at `<worktree-base>/<name>/<proj.path>`, preserving the same directory structure.
+
+**Configuration** — add `worktree-base` (required) and `worktree-copy` (optional) to `<default>` in `fleet.xml`:
+
+```xml
+<default remote="github"
+         revision="main"
+         sync-j="4"
+         worktree-base="~/worktrees/myproject"
+         worktree-copy=".env,.env.*" />
+```
+
+| Attribute | Description |
+|-----------|-------------|
+| `worktree-base` | Base directory for all worktrees. Supports `~` expansion. Required to use `fleet worktree`. |
+| `worktree-copy` | Comma-separated glob patterns for gitignored files to copy into each new worktree (e.g. `.env`). Inherited by all projects; individual projects can override with their own `worktree-copy` attribute. |
+
+**Behavior:**
+
+- Worktrees are placed at `<worktree-base>/<name>/<proj.path>`
+- If the branch does not exist locally, it is created from `<remote>/<revision>`
+- The `<revision>` flag overrides the per-project `revision` field for branch creation
+- Workspace root project (`path="."`) is processed first to avoid directory races with parallel service projects
+- Files matching `worktree-copy` patterns are copied from the source repo into the new worktree after creation
+- Worktree already exists at the target path → skip
+
+**Example output:**
+
+```
+Creating worktree JIRA-123 across 3 projects...
+  ✓ [1/3] . (created)
+  ✓ [2/3] services/user-service (created)
+  ✓ [3/3] services/order-service (created)
+
+3 created
+```
+
+The resulting worktree workspace mirrors your original layout:
+
+```
+~/worktrees/myproject/
+└── JIRA-123/
+    ├── .                      ← workspace repo worktree
+    └── services/
+        ├── user-service/      ← worktree on branch JIRA-123
+        └── order-service/     ← worktree on branch JIRA-123
+```
+
+---
+
 ### `fleet forall`
 
 Execute a command across all repositories.
@@ -373,8 +438,8 @@ This allows IntelliJ-based IDEs to recognize all repos when opening the workspac
 | Element | Description |
 |---------|-------------|
 | `<remote>` | Defines a Git remote endpoint (`name`, `fetch`, `review`) |
-| `<default>` | Default values for all projects (`remote`, `revision`, `sync-j`, `push`, `master-main-compat`) |
-| `<project>` | Defines a managed Git repository (`name`, `path`, `groups`, `remote`, `revision`, `push`) |
+| `<default>` | Default values for all projects (`remote`, `revision`, `sync-j`, `push`, `master-main-compat`, `worktree-base`, `worktree-copy`) |
+| `<project>` | Defines a managed Git repository (`name`, `path`, `groups`, `remote`, `revision`, `push`, `worktree-copy`) |
 
 ### `master-main-compat` Attribute
 
