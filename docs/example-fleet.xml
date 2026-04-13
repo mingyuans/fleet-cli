@@ -34,7 +34,7 @@
       worktree-base      (optional) — Base directory for "fleet worktree" output.
                                       Supports "~" home expansion.
                                       Worktrees are placed at <worktree-base>/<name>/<project.path>.
-                                      Required when using the "fleet worktree" command.
+                                      Required unless --dest is used.
       worktree-copy      (optional) — Comma-separated glob patterns for files to copy
                                       from each repo into its new worktree after creation.
                                       Useful for gitignored files such as .env that must

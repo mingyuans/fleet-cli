@@ -311,7 +311,7 @@ Creating PRs for 2 projects...
 Create a git worktree for every managed repository under a shared base directory, mirroring the original workspace structure.
 
 ```bash
-fleet worktree <name> [-b <branch>] [-r <revision>] [-g <group>]
+fleet worktree <name> [-b <branch>] [-r <revision>] [-d <dest>] [-g <group>]
 ```
 
 **Options:**
@@ -320,10 +320,13 @@ fleet worktree <name> [-b <branch>] [-r <revision>] [-g <group>]
 |------|-------------|
 | `-b, --branch` | Branch name to create or check out (default: same as `name`) |
 | `-r, --revision` | Upstream revision to base the new branch on (default: each project's `revision` in fleet.xml) |
+| `-d, --dest` | Destination directory for worktrees, overrides `worktree-base/<name>` |
 
 **Use case:** Work on a second feature in parallel without switching branches in your main workspace. Each repo gets a worktree at `<worktree-base>/<name>/<proj.path>`, preserving the same directory structure.
 
-**Configuration** — add `worktree-base` (required) and `worktree-copy` (optional) to `<default>` in `fleet.xml`:
+When `--dest` is specified, worktrees are placed directly at `<dest>/<proj.path>`, bypassing the `worktree-base` configuration. This is useful when you want full control over the target path or haven't configured `worktree-base` in fleet.xml.
+
+**Configuration** — add `worktree-base` (required without `--dest`) and `worktree-copy` (optional) to `<default>` in `fleet.xml`:
 
 ```xml
 <default remote="github"
@@ -335,12 +338,12 @@ fleet worktree <name> [-b <branch>] [-r <revision>] [-g <group>]
 
 | Attribute | Description |
 |-----------|-------------|
-| `worktree-base` | Base directory for all worktrees. Supports `~` expansion. Required to use `fleet worktree`. |
+| `worktree-base` | Base directory for all worktrees. Supports `~` expansion. Required unless `--dest` is used. |
 | `worktree-copy` | Comma-separated glob patterns for gitignored files to copy into each new worktree (e.g. `.env`). Inherited by all projects; individual projects can override with their own `worktree-copy` attribute. |
 
 **Behavior:**
 
-- Worktrees are placed at `<worktree-base>/<name>/<proj.path>`
+- Worktrees are placed at `<worktree-base>/<name>/<proj.path>` (or `<dest>/<proj.path>` when `--dest` is used)
 - If the branch does not exist locally, it is created from `<remote>/<revision>`
 - The `<revision>` flag overrides the per-project `revision` field for branch creation
 - Workspace root project (`path="."`) is processed first to avoid directory races with parallel service projects
