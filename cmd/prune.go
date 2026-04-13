@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/spf13/cobra"
+	"github.com/xq-yan/fleet-cli/internal/executor"
 	"github.com/xq-yan/fleet-cli/internal/git"
 	"github.com/xq-yan/fleet-cli/internal/manifest"
 	"github.com/xq-yan/fleet-cli/internal/output"
@@ -51,7 +53,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	}
 	output.Header("Scanning %d project(s) for merged branches...", len(projects))
 
-	candidates := collectPruneCandidates(ws.Root, projects)
+	candidates := collectPruneCandidates(ws.Root, projects, ws.SyncJ)
 
 	if len(candidates) == 0 {
 		fmt.Println()
@@ -59,7 +61,6 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Display candidates.
 	fmt.Println()
 	output.Info("The following merged branches can be safely deleted:")
 	fmt.Println()
@@ -70,7 +71,6 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	}
 	table.Print()
 
-	// Confirm.
 	fmt.Println()
 	fmt.Printf("Delete %d branch(es) (local + remote)? [y/N] ", len(candidates))
 
@@ -82,7 +82,6 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Delete.
 	fmt.Println()
 	output.Header("Deleting %d branch(es)...", len(candidates))
 
@@ -99,52 +98,57 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// collectPruneCandidates fetches each project and returns branches merged into its revision.
-func collectPruneCandidates(root string, projects []manifest.ResolvedProject) []pruneCandidate {
+// collectPruneCandidates fetches each project in parallel and returns branches merged into its revision.
+func collectPruneCandidates(root string, projects []manifest.ResolvedProject, concurrency int) []pruneCandidate {
+	var mu sync.Mutex
 	var candidates []pruneCandidate
 
-	for _, proj := range projects {
+	executor.Run(projects, concurrency, func(proj manifest.ResolvedProject, log executor.LogFunc) (string, executor.ResultStatus, string) {
 		projDir := filepath.Join(root, proj.Path)
 
 		if _, err := os.Stat(projDir); os.IsNotExist(err) {
-			output.Skip("%s (not cloned)", proj.Path)
-			continue
+			return "skipped", executor.StatusSkip, "not cloned"
 		}
 
 		remote := resolveRemote(projDir, proj.Remote)
 		if remote == "" {
-			output.Warning("%s: no suitable remote found (tried %s and origin)", proj.Path, proj.Remote)
-			continue
+			return "failed", executor.StatusFail, "no suitable remote found (tried " + proj.Remote + " and origin)"
 		}
 
+		log("fetching %s ...", remote)
 		if err := git.Fetch(projDir, remote); err != nil {
-			output.Warning("%s: fetch failed: %s", proj.Path, err)
-			continue
+			return "failed", executor.StatusFail, "fetch failed: " + err.Error()
 		}
 
 		revision := resolveRevision(projDir, remote, proj.Revision, proj.MasterMainCompat)
 		if revision == "" {
-			output.Warning("%s: revision %s not found on remote", proj.Path, proj.Revision)
-			continue
+			return "failed", executor.StatusFail, "revision " + proj.Revision + " not found on remote"
 		}
 
-		mergeBase := remote + "/" + revision
-		branches, err := git.ListMergedBranches(projDir, mergeBase)
+		branches, err := git.ListMergedBranches(projDir, remote+"/"+revision)
 		if err != nil {
-			output.Warning("%s: cannot list merged branches: %s", proj.Path, err)
-			continue
+			return "failed", executor.StatusFail, "cannot list merged branches: " + err.Error()
 		}
 
+		// Skip the revision branch itself in addition to the global protected list.
+		skip := append([]string{revision}, protectedBranches...)
+		var found []pruneCandidate
 		for _, branch := range branches {
-			if slices.Contains(protectedBranches, branch) {
-				continue
+			if !slices.Contains(skip, branch) {
+				found = append(found, pruneCandidate{proj: proj, branch: branch})
 			}
-			if branch == revision {
-				continue
-			}
-			candidates = append(candidates, pruneCandidate{proj: proj, branch: branch})
 		}
-	}
+
+		if len(found) == 0 {
+			return "clean", executor.StatusSkip, ""
+		}
+
+		mu.Lock()
+		candidates = append(candidates, found...)
+		mu.Unlock()
+
+		return fmt.Sprintf("%d merged", len(found)), executor.StatusSuccess, ""
+	})
 
 	return candidates
 }
@@ -155,7 +159,8 @@ func deleteCandidates(root string, candidates []pruneCandidate) (deleted, failed
 	for _, c := range candidates {
 		projDir := filepath.Join(root, c.proj.Path)
 
-		// If currently on the branch to be deleted, switch away first.
+		remote := resolveRemote(projDir, c.proj.Remote)
+
 		current, err := git.CurrentBranch(projDir)
 		if err != nil {
 			output.Error("%s/%s: cannot determine current branch: %s", c.proj.Path, c.branch, err)
@@ -163,7 +168,6 @@ func deleteCandidates(root string, candidates []pruneCandidate) (deleted, failed
 			continue
 		}
 		if current == c.branch {
-			remote := resolveRemote(projDir, c.proj.Remote)
 			revision := resolveRevision(projDir, remote, c.proj.Revision, c.proj.MasterMainCompat)
 			if revision == "" {
 				revision = c.proj.Revision
@@ -181,12 +185,12 @@ func deleteCandidates(root string, candidates []pruneCandidate) (deleted, failed
 			continue
 		}
 
-		// Delete remote branch. Prefer push remote if available.
-		pushRemote := resolveRemote(projDir, c.proj.Remote)
+		// Prefer push remote over fetch remote for remote branch deletion.
+		pushRemote := remote
 		if c.proj.HasPushRemote && git.RemoteExists(projDir, c.proj.Push) {
 			pushRemote = c.proj.Push
 		}
-		if pushRemote != "" && git.RemoteRefExists(projDir, pushRemote+"/"+c.branch) {
+		if pushRemote != "" {
 			if err := git.DeleteRemoteBranch(projDir, pushRemote, c.branch); err != nil {
 				output.Warning("%s/%s: local deleted, remote delete failed: %s", c.proj.Path, c.branch, err)
 			}
