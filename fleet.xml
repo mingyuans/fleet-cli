@@ -5,7 +5,7 @@
           fetch="git@github.com:mingyuans/"/>
 
   <default remote="github"
-           revision="master"
+           revision="main"
            sync-j="2"
            push="github"
            worktree-base="~/worktrees/fleet"
