@@ -45,6 +45,9 @@
                             clone_url = remote.fetch + name + ".git"
                             push_url  = push_remote.fetch + name + ".git"
       path     (required) — Local checkout path relative to the workspace root.
+                            Use path="." to include the workspace root repo itself
+                            (useful when the workspace is also a Git repository that
+                            holds shared config, e2e tests, or design documents).
       groups   (optional) — Comma-separated group tags for filtering with -g flag.
                             Supports "," (OR) and "+" (AND) in filter expressions:
                               -g "core,web"           → core OR web
@@ -55,14 +58,36 @@
       push     (optional) — Override push remote for this project. Inherits from <default>.
   -->
 
+  <!--
+    Workspace root repo (path="."):
+    When the workspace directory is itself a Git repository (e.g. it holds e2e
+    configs, design documents, or shared tooling), include it as a project with
+    path=".". Fleet resolves this to the workspace root, so all commands
+    (status, commit, push, sync, start, finish …) operate on it alongside the
+    service repos.
+
+    Typical use-case: a feature spans design docs in the workspace repo AND code
+    changes in several service repos. Running "fleet commit -m '...'" commits
+    every repo that has staged/unstaged changes, workspace included.
+
+    To operate on only the workspace or only the services, use group filtering:
+      fleet status -g workspace   → workspace repo only
+      fleet status -g service     → service repos only
+      fleet commit -m "..." -g workspace,service  → both (default behaviour)
+  -->
+  <project name="workspace"
+           path="."
+           groups="workspace" />
+
   <!-- Minimal: inherits all defaults (remote, revision, push) -->
   <project name="user-service"
-           path="services/user-service" />
+           path="services/user-service"
+           groups="service" />
 
   <!-- With groups for filtering -->
   <project name="order-service"
            path="services/order-service"
-           groups="commerce,backend" />
+           groups="commerce,backend,service" />
 
   <!-- Override remote and revision per project -->
   <project name="shared-proto"
