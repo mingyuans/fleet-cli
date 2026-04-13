@@ -11,7 +11,7 @@
            worktree-base="~/worktrees/fleet"
            worktree-copy=".env,.env.*" />
 
-  <project name="fleet"
+  <project name="fleet-cli"
            path="."
            push="github"
            groups="ws" />
