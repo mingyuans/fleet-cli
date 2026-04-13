@@ -186,11 +186,14 @@ func deleteCandidates(root string, candidates []pruneCandidate) (deleted, failed
 		}
 
 		// Prefer push remote over fetch remote for remote branch deletion.
+		// Guard with RemoteRefExists: the scan phase ran git fetch, so the local
+		// tracking refs are current. Skipping branches with no remote counterpart
+		// avoids a noisy "remote ref does not exist" error.
 		pushRemote := remote
 		if c.proj.HasPushRemote && git.RemoteExists(projDir, c.proj.Push) {
 			pushRemote = c.proj.Push
 		}
-		if pushRemote != "" {
+		if pushRemote != "" && git.RemoteRefExists(projDir, pushRemote+"/"+c.branch) {
 			if err := git.DeleteRemoteBranch(projDir, pushRemote, c.branch); err != nil {
 				output.Warning("%s/%s: local deleted, remote delete failed: %s", c.proj.Path, c.branch, err)
 			}
