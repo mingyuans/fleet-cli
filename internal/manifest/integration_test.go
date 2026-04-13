@@ -81,7 +81,7 @@ func TestIntegrationParseAndMerge(t *testing.T) {
 	}
 
 	// Resolve
-	resolved, syncJ, err := Resolve(merged)
+	resolved, syncJ, _, err := Resolve(merged)
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestIntegrationProjectAttributeInheritance(t *testing.T) {
 		},
 	}
 
-	resolved, _, err := Resolve(m)
+	resolved, _, _, err := Resolve(m)
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}

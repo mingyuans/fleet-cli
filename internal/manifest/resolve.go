@@ -8,21 +8,24 @@ import (
 
 const defaultSyncJ = 4
 
-// Resolve takes a merged manifest and returns resolved projects with effective configuration.
-func Resolve(m *Manifest) ([]ResolvedProject, int, error) {
+// Resolve takes a merged manifest and returns resolved projects, sync concurrency,
+// worktree base path, and any error.
+func Resolve(m *Manifest) ([]ResolvedProject, int, string, error) {
 	remoteMap := make(map[string]Remote, len(m.Remotes))
 	for _, r := range m.Remotes {
 		remoteMap[r.Name] = r
 	}
 
 	syncJ := defaultSyncJ
-	var defaultRemote, defaultRevision, defaultPush string
+	var defaultRemote, defaultRevision, defaultPush, defaultWorktreeBase, defaultWorktreeCopy string
 	var masterMainCompat bool
 
 	if m.Default != nil {
 		defaultRemote = m.Default.Remote
 		defaultRevision = m.Default.Revision
 		defaultPush = m.Default.Push
+		defaultWorktreeBase = m.Default.WorktreeBase
+		defaultWorktreeCopy = m.Default.WorktreeCopy
 		masterMainCompat = m.Default.MasterMainCompat == "true"
 		if m.Default.SyncJ != "" {
 			if v, err := strconv.Atoi(m.Default.SyncJ); err == nil && v > 0 {
@@ -59,7 +62,7 @@ func Resolve(m *Manifest) ([]ResolvedProject, int, error) {
 
 		fetchRemote, ok := remoteMap[rp.Remote]
 		if !ok {
-			return nil, 0, fmt.Errorf("project %q references unknown remote %q", p.Name, rp.Remote)
+			return nil, 0, "", fmt.Errorf("project %q references unknown remote %q", p.Name, rp.Remote)
 		}
 		rp.CloneURL = fetchRemote.Fetch + p.Name + ".git"
 
@@ -68,14 +71,26 @@ func Resolve(m *Manifest) ([]ResolvedProject, int, error) {
 		if rp.Push != "" && rp.Push != rp.Remote {
 			pushRemote, ok := remoteMap[rp.Push]
 			if !ok {
-				return nil, 0, fmt.Errorf("project %q references unknown push remote %q", p.Name, rp.Push)
+				return nil, 0, "", fmt.Errorf("project %q references unknown push remote %q", p.Name, rp.Push)
 			}
 			rp.PushURL = pushRemote.Fetch + p.Name + ".git"
 			rp.HasPushRemote = true
 		}
 
+		copyStr := p.WorktreeCopy
+		if copyStr == "" {
+			copyStr = defaultWorktreeCopy
+		}
+		if copyStr != "" {
+			for _, pat := range strings.Split(copyStr, ",") {
+				if pat = strings.TrimSpace(pat); pat != "" {
+					rp.WorktreeCopy = append(rp.WorktreeCopy, pat)
+				}
+			}
+		}
+
 		resolved = append(resolved, rp)
 	}
 
-	return resolved, syncJ, nil
+	return resolved, syncJ, defaultWorktreeBase, nil
 }

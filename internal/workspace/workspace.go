@@ -21,6 +21,7 @@ type Workspace struct {
 	HasLocalManifest bool
 	Projects         []manifest.ResolvedProject
 	SyncJ            int
+	WorktreeBase     string // base directory for git worktrees (from worktree-base in fleet.xml)
 }
 
 // Load locates manifests, parses, merges, and returns the resolved workspace.
@@ -54,12 +55,13 @@ func Load() (*Workspace, error) {
 		merged = manifest.Merge(base, local)
 	}
 
-	projects, syncJ, err := manifest.Resolve(merged)
+	projects, syncJ, worktreeBase, err := manifest.Resolve(merged)
 	if err != nil {
 		return nil, err
 	}
 	ws.Projects = projects
 	ws.SyncJ = syncJ
+	ws.WorktreeBase = expandHome(worktreeBase)
 
 	return ws, nil
 }
@@ -87,6 +89,17 @@ func resolveLocalManifestPath(root string) string {
 		}
 	}
 	return filepath.Join(root, localManifestFile)
+}
+
+func expandHome(path string) string {
+	if path == "" || path[0] != '~' {
+		return path
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
+	}
+	return filepath.Join(home, path[1:])
 }
 
 func findManifestUpward() (string, error) {

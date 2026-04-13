@@ -23,20 +23,32 @@
   <!--
     <default> — Default values inherited by all <project> entries.
     Attributes:
-      remote            (optional) — Default fetch remote name.
-      revision          (optional) — Default branch to track (e.g. "master", "main").
-      sync-j            (optional) — Parallelism for clone/sync/push operations. Default: 4.
-      push              (optional) — Default push remote name. Only takes effect when
-                                     it differs from the fetch remote.
+      remote             (optional) — Default fetch remote name.
+      revision           (optional) — Default branch to track (e.g. "master", "main").
+      sync-j             (optional) — Parallelism for clone/sync/push operations. Default: 4.
+      push               (optional) — Default push remote name. Only takes effect when
+                                      it differs from the fetch remote.
       master-main-compat (optional) — When "true", automatically falls back between
                                       "master" and "main" if the configured revision
                                       is not found on the remote.
+      worktree-base      (optional) — Base directory for "fleet worktree" output.
+                                      Supports "~" home expansion.
+                                      Worktrees are placed at <worktree-base>/<name>/<project.path>.
+                                      Required when using the "fleet worktree" command.
+      worktree-copy      (optional) — Comma-separated glob patterns for files to copy
+                                      from each repo into its new worktree after creation.
+                                      Useful for gitignored files such as .env that must
+                                      exist for the service to run. Each <project> can
+                                      override this value (full replacement, not merge).
+                                      Example: ".env,.env.*,config/local.yaml"
   -->
   <default remote="github"
            revision="master"
            sync-j="4"
            push="fork"
-           master-main-compat="true" />
+           master-main-compat="true"
+           worktree-base="~/worktrees/myproject"
+           worktree-copy=".env,.env.*" />
 
   <!--
     <project> — Define a managed Git repository.
@@ -44,18 +56,21 @@
       name     (required) — Repository name. Used to construct clone/push URLs:
                             clone_url = remote.fetch + name + ".git"
                             push_url  = push_remote.fetch + name + ".git"
-      path     (required) — Local checkout path relative to the workspace root.
-                            Use path="." to include the workspace root repo itself
-                            (useful when the workspace is also a Git repository that
-                            holds shared config, e2e tests, or design documents).
-      groups   (optional) — Comma-separated group tags for filtering with -g flag.
-                            Supports "," (OR) and "+" (AND) in filter expressions:
-                              -g "core,web"           → core OR web
-                              -g "core+backend"       → core AND backend
-                              -g "core+backend,infra" → (core AND backend) OR infra
-      remote   (optional) — Override fetch remote for this project. Inherits from <default>.
-      revision (optional) — Override default branch for this project. Inherits from <default>.
-      push     (optional) — Override push remote for this project. Inherits from <default>.
+      path          (required) — Local checkout path relative to the workspace root.
+                                Use path="." to include the workspace root repo itself
+                                (useful when the workspace is also a Git repository that
+                                holds shared config, e2e tests, or design documents).
+      groups        (optional) — Comma-separated group tags for filtering with -g flag.
+                                Supports "," (OR) and "+" (AND) in filter expressions:
+                                  -g "core,web"           → core OR web
+                                  -g "core+backend"       → core AND backend
+                                  -g "core+backend,infra" → (core AND backend) OR infra
+      remote        (optional) — Override fetch remote for this project. Inherits from <default>.
+      revision      (optional) — Override default branch for this project. Inherits from <default>.
+      push          (optional) — Override push remote for this project. Inherits from <default>.
+      worktree-copy (optional) — Override the default worktree-copy glob patterns for this
+                                project. Fully replaces the <default> value (no merging).
+                                Example: ".env,.env.local,config/local.yaml"
   -->
 
   <!--
@@ -101,5 +116,11 @@
            path="tools/internal-tool"
            push="github"
            groups="tools" />
+
+  <!-- Override worktree-copy for a project that needs extra files copied -->
+  <project name="api-gateway"
+           path="services/api-gateway"
+           groups="service"
+           worktree-copy=".env,.env.local,config/local.yaml" />
 
 </manifest>

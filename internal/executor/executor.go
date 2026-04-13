@@ -36,12 +36,18 @@ type ProjectFunc func(proj manifest.ResolvedProject, log LogFunc) (label string,
 // Run executes fn for each project in parallel with concurrency limit.
 // Results are printed in real-time as each project completes.
 func Run(projects []manifest.ResolvedProject, concurrency int, fn ProjectFunc) []Result {
+	return RunWithOffset(projects, concurrency, 0, len(projects), fn)
+}
+
+// RunWithOffset executes fn for each project in parallel with concurrency limit.
+// offset and total control the progress counter display, allowing multi-phase
+// execution (e.g. sequential then parallel) to show a single continuous sequence.
+func RunWithOffset(projects []manifest.ResolvedProject, concurrency int, offset, total int, fn ProjectFunc) []Result {
 	if concurrency < 1 {
 		concurrency = 4
 	}
 
-	total := len(projects)
-	results := make([]Result, total)
+	results := make([]Result, len(projects))
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
 	var printMu sync.Mutex
@@ -69,7 +75,7 @@ func Run(projects []manifest.ResolvedProject, concurrency int, fn ProjectFunc) [
 				Message: message,
 			}
 
-			completed := int(done.Add(1))
+			completed := offset + int(done.Add(1))
 			printMu.Lock()
 			output.PendingRemove(id)
 			output.PendingFlush(func() {

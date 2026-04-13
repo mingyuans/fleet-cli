@@ -13,7 +13,7 @@ func TestResolveInheritsDefaults(t *testing.T) {
 		Default:  &Default{Remote: "github", Revision: "master", Push: "fork"},
 		Projects: []Project{{Name: "my-service", Path: "services/my-service"}},
 	}
-	resolved, _, err := Resolve(m)
+	resolved, _, _, err := Resolve(m)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestResolveProjectOverrides(t *testing.T) {
 		Default:  &Default{Remote: "github", Revision: "master"},
 		Projects: []Project{{Name: "svc", Path: "services/svc", Remote: "custom"}},
 	}
-	resolved, _, err := Resolve(m)
+	resolved, _, _, err := Resolve(m)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestResolveNoPushRemote(t *testing.T) {
 		Default:  &Default{Remote: "github", Revision: "master"},
 		Projects: []Project{{Name: "svc", Path: "services/svc"}},
 	}
-	resolved, _, err := Resolve(m)
+	resolved, _, _, err := Resolve(m)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestResolveSyncJ(t *testing.T) {
 		Default:  &Default{Remote: "github", Revision: "master", SyncJ: "8"},
 		Projects: []Project{{Name: "svc", Path: "services/svc"}},
 	}
-	_, syncJ, err := Resolve(m)
+	_, syncJ, _, err := Resolve(m)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestResolveSyncJDefault(t *testing.T) {
 		Default:  &Default{Remote: "github", Revision: "master"},
 		Projects: []Project{{Name: "svc", Path: "services/svc"}},
 	}
-	_, syncJ, err := Resolve(m)
+	_, syncJ, _, err := Resolve(m)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestResolveGroups(t *testing.T) {
 		Default:  &Default{Remote: "github", Revision: "master"},
 		Projects: []Project{{Name: "svc", Path: "services/svc", Groups: "core,backend"}},
 	}
-	resolved, _, err := Resolve(m)
+	resolved, _, _, err := Resolve(m)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestResolveUnknownRemoteError(t *testing.T) {
 		Default:  &Default{Remote: "unknown", Revision: "master"},
 		Projects: []Project{{Name: "svc", Path: "services/svc"}},
 	}
-	_, _, err := Resolve(m)
+	_, _, _, err := Resolve(m)
 	if err == nil {
 		t.Fatal("expected error for unknown remote")
 	}

@@ -24,16 +24,19 @@ type Default struct {
 	SyncJ            string `xml:"sync-j,attr,omitempty"`
 	Push             string `xml:"push,attr,omitempty"`
 	MasterMainCompat string `xml:"master-main-compat,attr,omitempty"`
+	WorktreeBase     string `xml:"worktree-base,attr,omitempty"`
+	WorktreeCopy     string `xml:"worktree-copy,attr,omitempty"`
 }
 
 // Project represents a <project> element.
 type Project struct {
-	Name     string `xml:"name,attr"`
-	Path     string `xml:"path,attr"`
-	Groups   string `xml:"groups,attr,omitempty"`
-	Remote   string `xml:"remote,attr,omitempty"`
-	Revision string `xml:"revision,attr,omitempty"`
-	Push     string `xml:"push,attr,omitempty"`
+	Name         string `xml:"name,attr"`
+	Path         string `xml:"path,attr"`
+	Groups       string `xml:"groups,attr,omitempty"`
+	Remote       string `xml:"remote,attr,omitempty"`
+	Revision     string `xml:"revision,attr,omitempty"`
+	Push         string `xml:"push,attr,omitempty"`
+	WorktreeCopy string `xml:"worktree-copy,attr,omitempty"`
 }
 
 // ResolvedProject holds a project with its effective (resolved) configuration.
@@ -48,4 +51,5 @@ type ResolvedProject struct {
 	PushURL          string
 	HasPushRemote    bool
 	MasterMainCompat bool
+	WorktreeCopy     []string // glob patterns for files to copy into new worktrees
 }

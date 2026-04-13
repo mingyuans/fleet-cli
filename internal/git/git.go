@@ -136,6 +136,16 @@ func CreateBranchFrom(dir, branch, startPoint string) error {
 	return run(dir, "git", "checkout", "-b", branch, startPoint)
 }
 
+// WorktreeAdd adds a worktree at wtPath checking out an existing branch.
+func WorktreeAdd(dir, wtPath, branch string) error {
+	return run(dir, "git", "worktree", "add", wtPath, branch)
+}
+
+// WorktreeAddNew adds a worktree at wtPath and creates a new branch from startPoint.
+func WorktreeAddNew(dir, wtPath, branch, startPoint string) error {
+	return run(dir, "git", "worktree", "add", "-b", branch, wtPath, startPoint)
+}
+
 func DeleteBranch(dir, branch string) error {
 	return run(dir, "git", "branch", "-D", branch)
 }
