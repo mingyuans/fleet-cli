@@ -79,9 +79,11 @@ func cloneProject(proj manifest.ResolvedProject, projDir string, log executor.Lo
 	}
 
 	if proj.HasPushRemote {
-		log("adding push remote %s ...", proj.Push)
-		if err := git.RemoteAdd(projDir, proj.Push, proj.PushURL); err != nil {
-			return "failed", executor.StatusFail, err.Error()
+		if proj.IsForkPush() {
+			log("adding push remote %s ...", proj.Push)
+			if err := git.RemoteAdd(projDir, proj.Push, proj.PushURL); err != nil {
+				return "failed", executor.StatusFail, err.Error()
+			}
 		}
 		if err := git.ConfigSet(projDir, "remote.pushDefault", proj.Push); err != nil {
 			return "failed", executor.StatusFail, err.Error()
@@ -115,14 +117,11 @@ func reconcileProject(proj manifest.ResolvedProject, projDir string, log executo
 		}
 	}
 
-	if proj.HasPushRemote {
+	if proj.IsForkPush() {
 		log("checking push remote %s ...", proj.Push)
 		if !git.RemoteExists(projDir, proj.Push) {
 			log("adding push remote %s ...", proj.Push)
 			if err := git.RemoteAdd(projDir, proj.Push, proj.PushURL); err != nil {
-				return "failed", executor.StatusFail, err.Error()
-			}
-			if err := git.ConfigSet(projDir, "remote.pushDefault", proj.Push); err != nil {
 				return "failed", executor.StatusFail, err.Error()
 			}
 			configured = true
@@ -138,6 +137,12 @@ func reconcileProject(proj manifest.ResolvedProject, projDir string, log executo
 				}
 				configured = true
 			}
+		}
+	}
+
+	if proj.HasPushRemote {
+		if err := git.ConfigSet(projDir, "remote.pushDefault", proj.Push); err != nil {
+			return "failed", executor.StatusFail, err.Error()
 		}
 	}
 

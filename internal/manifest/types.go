@@ -53,3 +53,9 @@ type ResolvedProject struct {
 	MasterMainCompat bool
 	WorktreeCopy     []string // glob patterns for files to copy into new worktrees
 }
+
+// IsForkPush reports whether the push remote differs from the fetch remote,
+// indicating a fork-based workflow that requires a separate git remote.
+func (rp ResolvedProject) IsForkPush() bool {
+	return rp.HasPushRemote && rp.Push != rp.Remote
+}

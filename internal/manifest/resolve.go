@@ -68,13 +68,15 @@ func Resolve(m *Manifest) ([]ResolvedProject, int, string, error) {
 
 		rp.MasterMainCompat = masterMainCompat
 
-		if rp.Push != "" && rp.Push != rp.Remote {
-			pushRemote, ok := remoteMap[rp.Push]
-			if !ok {
-				return nil, 0, "", fmt.Errorf("project %q references unknown push remote %q", p.Name, rp.Push)
-			}
-			rp.PushURL = pushRemote.Fetch + p.Name + ".git"
+		if rp.Push != "" {
 			rp.HasPushRemote = true
+			if rp.Push != rp.Remote {
+				pushRemote, ok := remoteMap[rp.Push]
+				if !ok {
+					return nil, 0, "", fmt.Errorf("project %q references unknown push remote %q", p.Name, rp.Push)
+				}
+				rp.PushURL = pushRemote.Fetch + p.Name + ".git"
+			}
 		}
 
 		copyStr := p.WorktreeCopy
