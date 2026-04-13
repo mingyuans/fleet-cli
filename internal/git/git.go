@@ -150,6 +150,26 @@ func DeleteBranch(dir, branch string) error {
 	return run(dir, "git", "branch", "-D", branch)
 }
 
+// ListMergedBranches returns local branches fully merged into mergeBase (e.g. "origin/main").
+// Protected branches and the mergeBase branch name itself are NOT filtered here; callers must filter.
+func ListMergedBranches(dir, mergeBase string) ([]string, error) {
+	out, err := output(dir, "git", "branch", "--merged", mergeBase)
+	if err != nil {
+		return nil, err
+	}
+	if out == "" {
+		return nil, nil
+	}
+	var branches []string
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimPrefix(strings.TrimSpace(line), "* ")
+		if line != "" {
+			branches = append(branches, line)
+		}
+	}
+	return branches, nil
+}
+
 func DeleteRemoteBranch(dir, remote, branch string) error {
 	return run(dir, "git", "push", remote, "--delete", branch)
 }
