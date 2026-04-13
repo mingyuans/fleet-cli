@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+
+  <remote name="github"
+          fetch="git@github.com:mingyuans/"/>
+
+
+  <default remote="github"
+           revision="master"
+           sync-j="4"
+           push="github"
+           master-main-compat="true"
+           worktree-base="~/worktrees/fleet"
+           worktree-copy=".env,.env.*" />
+
+  <project name="fleet"
+           path="."
+           groups="ws" />
+
+</manifest>
