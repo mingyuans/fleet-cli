@@ -64,17 +64,19 @@ func Resolve(m *Manifest) ([]ResolvedProject, int, string, error) {
 		if !ok {
 			return nil, 0, "", fmt.Errorf("project %q references unknown remote %q", p.Name, rp.Remote)
 		}
-		rp.CloneURL = fetchRemote.Fetch + p.Name + ".git"
+		rp.CloneURL = ensureTrailingSlash(fetchRemote.Fetch) + p.Name + ".git"
 
 		rp.MasterMainCompat = masterMainCompat
 
-		if rp.Push != "" && rp.Push != rp.Remote {
-			pushRemote, ok := remoteMap[rp.Push]
-			if !ok {
-				return nil, 0, "", fmt.Errorf("project %q references unknown push remote %q", p.Name, rp.Push)
-			}
-			rp.PushURL = pushRemote.Fetch + p.Name + ".git"
+		if rp.Push != "" {
 			rp.HasPushRemote = true
+			if rp.Push != rp.Remote {
+				pushRemote, ok := remoteMap[rp.Push]
+				if !ok {
+					return nil, 0, "", fmt.Errorf("project %q references unknown push remote %q", p.Name, rp.Push)
+				}
+				rp.PushURL = ensureTrailingSlash(pushRemote.Fetch) + p.Name + ".git"
+			}
 		}
 
 		copyStr := p.WorktreeCopy
@@ -93,4 +95,11 @@ func Resolve(m *Manifest) ([]ResolvedProject, int, string, error) {
 	}
 
 	return resolved, syncJ, defaultWorktreeBase, nil
+}
+
+func ensureTrailingSlash(s string) string {
+	if s != "" && s[len(s)-1] != '/' {
+		return s + "/"
+	}
+	return s
 }

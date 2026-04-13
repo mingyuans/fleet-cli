@@ -16,6 +16,7 @@ import (
 
 var worktreeBranch string
 var worktreeRevision string
+var worktreeDest string
 
 var worktreeCmd = &cobra.Command{
 	Use:   "worktree <name>",
@@ -25,9 +26,13 @@ var worktreeCmd = &cobra.Command{
 The worktree directory mirrors the original workspace structure. If the branch
 does not exist locally it is created from <remote>/<revision>.
 
-Configure the base path in fleet.xml:
+Use --dest to place worktrees at an explicit directory, bypassing worktree-base.
+When --dest is used, <name> can be omitted but --branch is required:
+  fleet worktree --dest ~/worktrees/feature-x -b feature-x
+
+Configure the default base path in fleet.xml:
   <default worktree-base="~/worktrees/myproject" worktree-copy=".env,.env.*" />`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.RangeArgs(0, 1),
 	RunE: runWorktree,
 }
 
@@ -36,11 +41,24 @@ func init() {
 		"branch name to create or checkout (default: worktree name)")
 	worktreeCmd.Flags().StringVarP(&worktreeRevision, "revision", "r", "",
 		"upstream revision to base the new branch on (default: project revision in fleet.xml)")
+	worktreeCmd.Flags().StringVarP(&worktreeDest, "dest", "d", "",
+		"destination directory for worktrees (overrides worktree-base/<name>)")
 	rootCmd.AddCommand(worktreeCmd)
 }
 
 func runWorktree(cmd *cobra.Command, args []string) error {
-	name := args[0]
+	var name string
+	if len(args) > 0 {
+		name = args[0]
+	}
+
+	if worktreeDest == "" && name == "" {
+		return fmt.Errorf("requires <name> argument (or use --dest with --branch)")
+	}
+	if worktreeDest != "" && worktreeBranch == "" {
+		return fmt.Errorf("--branch is required when using --dest")
+	}
+
 	branch := worktreeBranch
 	if branch == "" {
 		branch = name
@@ -50,16 +68,25 @@ func runWorktree(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if ws.WorktreeBase == "" {
-		return fmt.Errorf(`worktree-base is not configured; add it to <default> in fleet.xml:
-  <default worktree-base="~/worktrees/myproject" />`)
+
+	var worktreeRoot string
+	switch {
+	case worktreeDest != "":
+		worktreeRoot = workspace.ExpandHome(worktreeDest)
+	case ws.WorktreeBase != "":
+		worktreeRoot = filepath.Join(ws.WorktreeBase, name)
+	default:
+		return fmt.Errorf(`worktree-base is not configured; add it to <default> in fleet.xml or use --dest:
+  <default worktree-base="~/worktrees/myproject" />
+  fleet worktree --dest ~/worktrees/feature-x -b feature-x`)
 	}
 
 	projects := filterByGroup(ws.Projects)
 	if groupFilter != "" {
 		output.Info("Group filter: %s", groupFilter)
 	}
-	output.Header("Creating worktree %s across %d projects...", output.Bold(name), len(projects))
+
+	output.Header("Creating worktree %s across %d projects...", output.Bold(branch), len(projects))
 
 	// Split projects: root (path=".") must run and complete before services start
 	// creating parent directories, otherwise MkdirAll creates the worktree root
@@ -74,7 +101,7 @@ func runWorktree(cmd *cobra.Command, args []string) error {
 	}
 
 	fn := func(proj manifest.ResolvedProject, log executor.LogFunc) (string, executor.ResultStatus, string) {
-		return worktreeProject(ws.Root, ws.WorktreeBase, proj, name, branch, worktreeRevision, log)
+		return worktreeProject(ws.Root, worktreeRoot, proj, branch, worktreeRevision, log)
 	}
 
 	total := len(projects)
@@ -94,14 +121,14 @@ func runWorktree(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func worktreeProject(root, worktreeBase string, proj manifest.ResolvedProject, name, branch, revision string, log executor.LogFunc) (string, executor.ResultStatus, string) {
+func worktreeProject(root, worktreeRoot string, proj manifest.ResolvedProject, branch, revision string, log executor.LogFunc) (string, executor.ResultStatus, string) {
 	projDir := filepath.Join(root, proj.Path)
 
 	if _, err := os.Stat(projDir); os.IsNotExist(err) {
 		return "skipped", executor.StatusSkip, "not cloned"
 	}
 
-	wtPath := filepath.Clean(filepath.Join(worktreeBase, name, proj.Path))
+	wtPath := filepath.Join(worktreeRoot, proj.Path)
 
 	// Checking the directory alone is unreliable: parent dirs may have been
 	// created by sibling projects running in parallel via MkdirAll.
@@ -177,6 +204,8 @@ func copyFile(src, dst string) error {
 	}
 	defer out.Close()
 
-	_, err = io.Copy(out, in)
-	return err
+	if _, err = io.Copy(out, in); err != nil {
+		return err
+	}
+	return out.Close()
 }

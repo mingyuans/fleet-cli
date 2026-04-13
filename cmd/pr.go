@@ -84,7 +84,7 @@ func prProject(root string, proj manifest.ResolvedProject, log executor.LogFunc)
 
 	// Determine --head: for fork, need "fork-owner:branch"
 	head := branch
-	if proj.HasPushRemote && proj.Push != proj.Remote {
+	if proj.IsForkPush() {
 		_, pushRepo, pushOK := git.ParseRepoOwner(proj.PushURL)
 		if pushOK {
 			pushOwner := strings.SplitN(pushRepo, "/", 2)[0]

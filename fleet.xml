@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+
+  <remote name="github"
+          fetch="git@github.com:mingyuans/"/>
+
+  <default remote="github"
+           revision="main"
+           sync-j="2"
+           push="github"
+           worktree-base="~/worktrees/fleet"
+           worktree-copy=".env,.env.*" />
+
+  <project name="fleet-cli"
+           path="."
+           push="github"
+           groups="ws" />
+
+</manifest>

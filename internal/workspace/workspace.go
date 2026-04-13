@@ -61,7 +61,7 @@ func Load() (*Workspace, error) {
 	}
 	ws.Projects = projects
 	ws.SyncJ = syncJ
-	ws.WorktreeBase = expandHome(worktreeBase)
+	ws.WorktreeBase = ExpandHome(worktreeBase)
 
 	return ws, nil
 }
@@ -91,7 +91,8 @@ func resolveLocalManifestPath(root string) string {
 	return filepath.Join(root, localManifestFile)
 }
 
-func expandHome(path string) string {
+// ExpandHome replaces a leading ~ with the user's home directory.
+func ExpandHome(path string) string {
 	if path == "" || path[0] != '~' {
 		return path
 	}
