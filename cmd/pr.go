@@ -79,7 +79,37 @@ func prProject(root string, proj manifest.ResolvedProject, log executor.LogFunc)
 		return label, status, message
 	}
 
-	// Push first
+	// Resolve fetch remote early for change detection and base branch resolution
+	fetchRemote := resolveRemote(projDir, proj.Remote)
+
+	// When --base is specified, fetch to ensure remote refs are up to date
+	if prBase != "" && fetchRemote != "" {
+		log("fetching %s ...", fetchRemote)
+		if err := git.Fetch(projDir, fetchRemote); err != nil {
+			return "failed", executor.StatusFail, "fetch failed: " + err.Error()
+		}
+	}
+
+	// Resolve the actual revision on the fetch remote (with masterMainCompat)
+	revision := proj.Revision
+	if fetchRemote != "" {
+		if resolved := resolveRevision(projDir, fetchRemote, proj.Revision, proj.MasterMainCompat); resolved != "" {
+			revision = resolved
+		}
+	}
+
+	// Check if current branch has changes compared to fetch remote's revision.
+	// This is the authoritative "has commits" check regardless of --base flag.
+	// The comparison is always against revision (the branch we were created from),
+	// not the base branch (which may differ from revision).
+	if fetchRemote != "" {
+		ahead, _, err := git.AheadBehind(projDir, fetchRemote, revision)
+		if err == nil && ahead == 0 {
+			return "skipped", executor.StatusSkip, "no changes from " + revision
+		}
+	}
+
+	// Push
 	log("pushing %s -> %s ...", branch, remote)
 	if err := git.Push(projDir, remote, branch); err != nil {
 		return "failed", executor.StatusFail, "push failed: " + err.Error()
@@ -93,16 +123,8 @@ func prProject(root string, proj manifest.ResolvedProject, log executor.LogFunc)
 	}
 
 	// Resolve base branch
-	fetchRemote := resolveRemote(projDir, proj.Remote)
 	var baseBranch string
 	if prBase != "" {
-		// User specified --base: fetch remote first, then resolve from candidates
-		if fetchRemote != "" {
-			log("fetching %s ...", fetchRemote)
-			if err := git.Fetch(projDir, fetchRemote); err != nil {
-				return "failed", executor.StatusFail, "fetch failed: " + err.Error()
-			}
-		}
 		candidates := parseBranchCandidates(prBase)
 		if len(candidates) == 0 {
 			return "skipped", executor.StatusSkip, "no valid branch candidates in --base"
@@ -114,13 +136,8 @@ func prProject(root string, proj manifest.ResolvedProject, log executor.LogFunc)
 			return "skipped", executor.StatusSkip, fmt.Sprintf("no matching base branch on %s: %s", fetchRemote, strings.Join(candidates, ", "))
 		}
 	} else {
-		// Default behavior: use manifest revision with masterMainCompat
-		baseBranch = proj.Revision
-		if fetchRemote != "" {
-			if resolved := resolveRevision(projDir, fetchRemote, proj.Revision, proj.MasterMainCompat); resolved != "" {
-				baseBranch = resolved
-			}
-		}
+		// Default behavior: use the already-resolved revision
+		baseBranch = revision
 	}
 
 	// Determine --head: for fork, need "fork-owner:branch"
