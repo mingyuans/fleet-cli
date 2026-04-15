@@ -33,6 +33,7 @@ func (e *noCommitsErr) Error() string {
 }
 
 var prTitle string
+var prBase string
 
 var prCmd = &cobra.Command{
 	Use:   "pr",
@@ -42,6 +43,7 @@ var prCmd = &cobra.Command{
 
 func init() {
 	prCmd.Flags().StringVarP(&prTitle, "title", "t", "", "pull request title (default: branch name)")
+	prCmd.Flags().StringVarP(&prBase, "base", "b", "", "target base branch for PR (supports | for fallback, e.g. \"testing-incy|testing\")")
 	rootCmd.AddCommand(prCmd)
 }
 
@@ -91,11 +93,33 @@ func prProject(root string, proj manifest.ResolvedProject, log executor.LogFunc)
 	}
 
 	// Resolve base branch
-	baseBranch := proj.Revision
 	fetchRemote := resolveRemote(projDir, proj.Remote)
-	if fetchRemote != "" {
-		if resolved := resolveRevision(projDir, fetchRemote, proj.Revision, proj.MasterMainCompat); resolved != "" {
-			baseBranch = resolved
+	var baseBranch string
+	if prBase != "" {
+		// User specified --base: fetch remote first, then resolve from candidates
+		if fetchRemote != "" {
+			log("fetching %s ...", fetchRemote)
+			if err := git.Fetch(projDir, fetchRemote); err != nil {
+				return "failed", executor.StatusFail, "fetch failed: " + err.Error()
+			}
+		}
+		candidates := parseBranchCandidates(prBase)
+		if len(candidates) == 0 {
+			return "skipped", executor.StatusSkip, "no valid branch candidates in --base"
+		}
+		if fetchRemote != "" {
+			baseBranch = resolveBaseFromCandidates(projDir, fetchRemote, candidates)
+		}
+		if baseBranch == "" {
+			return "skipped", executor.StatusSkip, fmt.Sprintf("no matching base branch on %s: %s", fetchRemote, strings.Join(candidates, ", "))
+		}
+	} else {
+		// Default behavior: use manifest revision with masterMainCompat
+		baseBranch = proj.Revision
+		if fetchRemote != "" {
+			if resolved := resolveRevision(projDir, fetchRemote, proj.Revision, proj.MasterMainCompat); resolved != "" {
+				baseBranch = resolved
+			}
 		}
 	}
 
@@ -161,6 +185,33 @@ func ghCreatePR(dir, repo, base, head, title string) (string, error) {
 		return "", fmt.Errorf("gh pr create: %s", errMsg)
 	}
 	return strings.TrimSpace(stdout.String()), nil
+}
+
+// parseBranchCandidates splits a pipe-separated branch list, trims whitespace,
+// and filters out empty segments.
+func parseBranchCandidates(input string) []string {
+	parts := strings.Split(input, "|")
+	var candidates []string
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			candidates = append(candidates, p)
+		}
+	}
+	return candidates
+}
+
+// resolveBaseFromCandidates iterates through candidate branches and returns
+// the first one that exists on the given fetch remote. Returns empty string
+// if none exist.
+func resolveBaseFromCandidates(dir, fetchRemote string, candidates []string) string {
+	for _, branch := range candidates {
+		ref := fetchRemote + "/" + branch
+		if git.RemoteRefExists(dir, ref) {
+			return branch
+		}
+	}
+	return ""
 }
 
 // extractPRURL extracts the PR URL from a gh CLI "already exists" error message.
