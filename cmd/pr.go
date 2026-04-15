@@ -33,6 +33,7 @@ func (e *noCommitsErr) Error() string {
 }
 
 var prTitle string
+var prBase string
 
 var prCmd = &cobra.Command{
 	Use:   "pr",
@@ -42,6 +43,7 @@ var prCmd = &cobra.Command{
 
 func init() {
 	prCmd.Flags().StringVarP(&prTitle, "title", "t", "", "pull request title (default: branch name)")
+	prCmd.Flags().StringVarP(&prBase, "base", "b", "", "target base branch for PR (supports | for fallback, e.g. \"testing-incy|testing\")")
 	rootCmd.AddCommand(prCmd)
 }
 
@@ -77,7 +79,37 @@ func prProject(root string, proj manifest.ResolvedProject, log executor.LogFunc)
 		return label, status, message
 	}
 
-	// Push first
+	// Resolve fetch remote early for change detection and base branch resolution
+	fetchRemote := resolveRemote(projDir, proj.Remote)
+
+	// When --base is specified, fetch to ensure remote refs are up to date
+	if prBase != "" && fetchRemote != "" {
+		log("fetching %s ...", fetchRemote)
+		if err := git.Fetch(projDir, fetchRemote); err != nil {
+			return "failed", executor.StatusFail, "fetch failed: " + err.Error()
+		}
+	}
+
+	// Resolve the actual revision on the fetch remote (with masterMainCompat)
+	revision := proj.Revision
+	if fetchRemote != "" {
+		if resolved := resolveRevision(projDir, fetchRemote, proj.Revision, proj.MasterMainCompat); resolved != "" {
+			revision = resolved
+		}
+	}
+
+	// Check if current branch has changes compared to fetch remote's revision.
+	// This is the authoritative "has commits" check regardless of --base flag.
+	// The comparison is always against revision (the branch we were created from),
+	// not the base branch (which may differ from revision).
+	if fetchRemote != "" {
+		ahead, _, err := git.AheadBehind(projDir, fetchRemote, revision)
+		if err == nil && ahead == 0 {
+			return "skipped", executor.StatusSkip, "no changes from " + revision
+		}
+	}
+
+	// Push
 	log("pushing %s -> %s ...", branch, remote)
 	if err := git.Push(projDir, remote, branch); err != nil {
 		return "failed", executor.StatusFail, "push failed: " + err.Error()
@@ -91,12 +123,21 @@ func prProject(root string, proj manifest.ResolvedProject, log executor.LogFunc)
 	}
 
 	// Resolve base branch
-	baseBranch := proj.Revision
-	fetchRemote := resolveRemote(projDir, proj.Remote)
-	if fetchRemote != "" {
-		if resolved := resolveRevision(projDir, fetchRemote, proj.Revision, proj.MasterMainCompat); resolved != "" {
-			baseBranch = resolved
+	var baseBranch string
+	if prBase != "" {
+		candidates := parseBranchCandidates(prBase)
+		if len(candidates) == 0 {
+			return "skipped", executor.StatusSkip, "no valid branch candidates in --base"
 		}
+		if fetchRemote != "" {
+			baseBranch = resolveBaseFromCandidates(projDir, fetchRemote, candidates)
+		}
+		if baseBranch == "" {
+			return "skipped", executor.StatusSkip, fmt.Sprintf("no matching base branch on %s: %s", fetchRemote, strings.Join(candidates, ", "))
+		}
+	} else {
+		// Default behavior: use the already-resolved revision
+		baseBranch = revision
 	}
 
 	// Determine --head: for fork, need "fork-owner:branch"
@@ -161,6 +202,33 @@ func ghCreatePR(dir, repo, base, head, title string) (string, error) {
 		return "", fmt.Errorf("gh pr create: %s", errMsg)
 	}
 	return strings.TrimSpace(stdout.String()), nil
+}
+
+// parseBranchCandidates splits a pipe-separated branch list, trims whitespace,
+// and filters out empty segments.
+func parseBranchCandidates(input string) []string {
+	parts := strings.Split(input, "|")
+	var candidates []string
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			candidates = append(candidates, p)
+		}
+	}
+	return candidates
+}
+
+// resolveBaseFromCandidates iterates through candidate branches and returns
+// the first one that exists on the given fetch remote. Returns empty string
+// if none exist.
+func resolveBaseFromCandidates(dir, fetchRemote string, candidates []string) string {
+	for _, branch := range candidates {
+		ref := fetchRemote + "/" + branch
+		if git.RemoteRefExists(dir, ref) {
+			return branch
+		}
+	}
+	return ""
 }
 
 // extractPRURL extracts the PR URL from a gh CLI "already exists" error message.
