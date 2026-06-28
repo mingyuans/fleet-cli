@@ -239,6 +239,49 @@ Starting branch feature/new-api across 3 projects...
 
 ---
 
+### `fleet checkout`
+
+Switch to a branch across all repositories. Without `--from`, it behaves like `fleet start`. With `--from <user>`, it switches to a branch on a collaborator's fork — handy for debugging their code locally.
+
+```bash
+fleet checkout [-g <group>] [--from <user>] <branch>
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `--from <user>` | Collaborator's GitHub username; check out the branch from their fork |
+
+**Assumptions:**
+
+- The collaborator's repos share the **same name** as the main repos: the fork remote URL is derived from each repo's fetch remote URL by replacing the owner segment, preserving the original protocol (SSH/HTTPS).
+- The collaborator fork remote (named `<user>`) is **kept, not removed**, so later `fleet sync` can track it.
+
+**Behavior (with `--from <user>`):**
+
+- Repo not cloned → skip
+- Add (or reuse) a fork remote named `<user>`, then `fetch`
+- Branch `<branch>` does not exist on the collaborator's fork → skip (no error, other repos unaffected)
+- Whether "already switched" is decided by the **current branch's upstream source**, not just its name: if the current branch is the target and already tracks `<user>/<branch>` → skip
+- No local branch of that name → create from `refs/remotes/<user>/<branch>` and switch
+- Local branch of that name already tracks `<user>/<branch>` → switch to it
+- Local branch of that name tracks a different source (e.g. on `origin/testing`, switching to `<user>/testing`) → use a fork-qualified local branch name `<user>/<branch>` and switch, **without clobbering** the existing branch
+
+**Example output:**
+
+```
+From fork: alice
+Checking out branch feature/x across 3 projects...
+  ✓ [1/3] services/user-service (checked-out from alice/feature/x)
+  – [2/3] services/order-service (skipped: alice/feature/x not found)
+  – [3/3] services/svc-a (skipped: not cloned)
+
+1 checked-out, 2 skipped
+```
+
+---
+
 ### `fleet finish`
 
 Delete a branch and switch back to the default branch across all repositories.

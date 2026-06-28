@@ -222,6 +222,47 @@ func ParseRepoOwner(url string) (host, ownerRepo string, ok bool) {
 	return "", "", false
 }
 
+// DeriveForkURL rebuilds a git remote URL pointing at newOwner's fork of the
+// same repository, preserving the original protocol (SSH or HTTPS).
+// It assumes the fork keeps the original repository name.
+func DeriveForkURL(fetchURL, newOwner string) (string, bool) {
+	host, ownerRepo, ok := ParseRepoOwner(fetchURL)
+	if !ok {
+		return "", false
+	}
+	idx := strings.LastIndex(ownerRepo, "/")
+	if idx < 0 {
+		return "", false
+	}
+	repo := ownerRepo[idx+1:]
+	if repo == "" {
+		return "", false
+	}
+
+	// HTTPS: https://host/owner/repo.git
+	if schemeIdx := strings.Index(fetchURL, "://"); schemeIdx >= 0 {
+		scheme := fetchURL[:schemeIdx+len("://")]
+		return scheme + host + "/" + newOwner + "/" + repo + ".git", true
+	}
+
+	// SSH: git@host:owner/repo.git
+	user := "git"
+	if at := strings.Index(fetchURL, "@"); at >= 0 {
+		user = fetchURL[:at]
+	}
+	return user + "@" + host + ":" + newOwner + "/" + repo + ".git", true
+}
+
+// BranchUpstream returns the upstream tracking ref of a local branch
+// (e.g. "origin/testing"). ok is false if the branch has no upstream configured.
+func BranchUpstream(dir, branch string) (string, bool) {
+	out, err := output(dir, "git", "rev-parse", "--abbrev-ref", branch+"@{upstream}")
+	if err != nil {
+		return "", false
+	}
+	return out, out != ""
+}
+
 func run(dir string, name string, args ...string) error {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir

@@ -239,6 +239,49 @@ Starting branch feature/new-api across 3 projects...
 
 ---
 
+### `fleet checkout`
+
+在所有仓库中切换到指定分支。不带 `--from` 时行为与 `fleet start` 一致；带 `--from <user>` 时切换到协作者 fork 上的分支，便于本地调试其代码。
+
+```bash
+fleet checkout [-g <group>] [--from <user>] <branch>
+```
+
+**选项：**
+
+| 参数 | 说明 |
+|------|------|
+| `--from <user>` | 协作者的 GitHub 用户名；从其 fork 切换分支 |
+
+**前提与约定：**
+
+- 协作者各仓库与主仓库**同名**：fork remote 的 URL 由各仓库的 fetch remote URL 替换 owner 段、保留原协议（SSH/HTTPS）派生得到
+- 临时添加的协作者 fork remote（以 `<user>` 命名）**保留不清理**，便于后续 `fleet sync` 跟踪
+
+**行为（带 `--from <user>`）：**
+
+- 仓库未 clone → 跳过
+- 为仓库添加（或复用）名为 `<user>` 的 fork remote，并 `fetch`
+- 协作者 fork 上不存在 `<branch>` → 跳过（不报错，不影响其它仓库）
+- 是否「已切换」依据**当前分支的 upstream 来源**判定，而非仅分支名：当前分支已是目标分支且 upstream 已为 `<user>/<branch>` → 跳过
+- 本地无同名分支 → 基于 `refs/remotes/<user>/<branch>` 创建并切换
+- 本地已有同名分支且 upstream 已为 `<user>/<branch>` → 直接切换
+- 本地已有同名分支但 upstream 不同（如当前在 `origin/testing` 要切到 `<user>/testing`）→ 使用 fork 限定本地分支名 `<user>/<branch>` 切换，**不覆盖**本地原有分支
+
+**输出示例：**
+
+```
+From fork: alice
+Checking out branch feature/x across 3 projects...
+  ✓ [1/3] services/user-service (checked-out from alice/feature/x)
+  – [2/3] services/order-service (skipped: alice/feature/x not found)
+  – [3/3] services/svc-a (skipped: not cloned)
+
+1 checked-out, 2 skipped
+```
+
+---
+
 ### `fleet finish`
 
 在所有仓库中删除指定分支并切回默认分支。

@@ -61,6 +61,7 @@ fleet init
 | `fleet sync` | Pull latest from upstream (rebase on default branch, fetch on feature branches) |
 | `fleet status` | Show branch, dirty/clean status, ahead/behind for all repos |
 | `fleet start <branch>` | Create a feature branch across all repos from upstream HEAD |
+| `fleet checkout <branch>` | Switch to a branch everywhere; `--from <user>` checks out a collaborator's fork branch |
 | `fleet finish <branch>` | Delete a branch and switch back to default (`-r` to delete remote too) |
 | `fleet push` | Push current branch to fork (`--all` to include default branch) |
 | `fleet pr` | Push and create PRs via `gh` CLI (`-t` to set title, `-b` to set target branch) |

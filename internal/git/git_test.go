@@ -114,6 +114,95 @@ func TestRemoteOperations(t *testing.T) {
 	}
 }
 
+func TestDeriveForkURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		fetchURL string
+		owner    string
+		want     string
+		wantOK   bool
+	}{
+		{
+			name:     "ssh url",
+			fetchURL: "git@github.com:my-org/user-service.git",
+			owner:    "alice",
+			want:     "git@github.com:alice/user-service.git",
+			wantOK:   true,
+		},
+		{
+			name:     "https url",
+			fetchURL: "https://github.com/my-org/user-service.git",
+			owner:    "alice",
+			want:     "https://github.com/alice/user-service.git",
+			wantOK:   true,
+		},
+		{
+			name:     "ssh url without .git suffix",
+			fetchURL: "git@github.com:my-org/user-service",
+			owner:    "bob",
+			want:     "git@github.com:bob/user-service.git",
+			wantOK:   true,
+		},
+		{
+			name:     "unparseable url",
+			fetchURL: "not-a-valid-url",
+			owner:    "alice",
+			want:     "",
+			wantOK:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := DeriveForkURL(tt.fetchURL, tt.owner)
+			if ok != tt.wantOK {
+				t.Fatalf("ok = %v, want %v", ok, tt.wantOK)
+			}
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBranchUpstream(t *testing.T) {
+	dir := initTestRepo(t)
+
+	branch, err := CurrentBranch(dir)
+	if err != nil {
+		t.Fatalf("CurrentBranch: %v", err)
+	}
+
+	// No upstream configured yet.
+	if _, ok := BranchUpstream(dir, branch); ok {
+		t.Error("expected no upstream before configuring one")
+	}
+
+	// Create a bare repo to act as origin and push the current branch.
+	bare := filepath.Join(t.TempDir(), "origin.git")
+	if out, err := exec.Command("git", "init", "--bare", bare).CombinedOutput(); err != nil {
+		t.Fatalf("init bare: %v\n%s", err, out)
+	}
+	for _, args := range [][]string{
+		{"remote", "add", "origin", bare},
+		{"push", "-u", "origin", branch},
+	} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	upstream, ok := BranchUpstream(dir, branch)
+	if !ok {
+		t.Fatal("expected upstream after push -u")
+	}
+	if want := "origin/" + branch; upstream != want {
+		t.Errorf("upstream = %q, want %q", upstream, want)
+	}
+}
+
 func TestConfigSet(t *testing.T) {
 	dir := initTestRepo(t)
 	if err := ConfigSet(dir, "user.name", "FleetTest"); err != nil {
