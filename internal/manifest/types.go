@@ -4,10 +4,18 @@ import "encoding/xml"
 
 // Manifest represents the root <manifest> element.
 type Manifest struct {
-	XMLName  xml.Name  `xml:"manifest"`
-	Remotes  []Remote  `xml:"remote"`
-	Default  *Default  `xml:"default"`
-	Projects []Project `xml:"project"`
+	XMLName       xml.Name      `xml:"manifest"`
+	Remotes       []Remote      `xml:"remote"`
+	Default       *Default      `xml:"default"`
+	BranchAliases []BranchAlias `xml:"branch-alias"`
+	Projects      []Project     `xml:"project"`
+}
+
+// BranchAlias represents a <branch-alias> element: a group of branches that are
+// treated as peer equivalents (no master/slave). Members are listed as <branch>
+// child elements.
+type BranchAlias struct {
+	Branches []string `xml:"branch"`
 }
 
 // Remote represents a <remote> element.
@@ -41,17 +49,17 @@ type Project struct {
 
 // ResolvedProject holds a project with its effective (resolved) configuration.
 type ResolvedProject struct {
-	Name             string
-	Path             string
-	Groups           []string
-	Remote           string
-	Revision         string
-	Push             string
-	CloneURL         string
-	PushURL          string
-	HasPushRemote    bool
-	MasterMainCompat bool
-	WorktreeCopy     []string // glob patterns for files to copy into new worktrees
+	Name          string
+	Path          string
+	Groups        []string
+	Remote        string
+	Revision      string
+	Push          string
+	CloneURL      string
+	PushURL       string
+	HasPushRemote bool
+	AliasGroups   [][]string // normalized branch alias groups (peer-equivalent members)
+	WorktreeCopy  []string   // glob patterns for files to copy into new worktrees
 }
 
 // IsForkPush reports whether the push remote differs from the fetch remote,

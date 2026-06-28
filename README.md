@@ -116,9 +116,19 @@ See [docs/example-fleet.xml](docs/example-fleet.xml) for a fully annotated examp
 |---------|------------|
 | `<remote>` | `name`, `fetch`, `review` |
 | `<default>` | `remote`, `revision`, `sync-j`, `push`, `master-main-compat`, `worktree-base`, `worktree-copy` |
+| `<branch-alias>` | `<branch>` child elements (one per member) |
 | `<project>` | `name`, `path`, `groups`, `remote`, `revision`, `push`, `worktree-copy` |
 
 Set `master-main-compat="true"` on `<default>` to auto-fallback between `master` and `main`.
+
+Declare `<branch-alias>` groups to treat branches as peer aliases. When a branch is missing on a repo, Fleet falls back to an existing member of its group. This powers `fleet start testing-incy` (creating from `testing` where `testing-incy` is absent) and revision resolution across `sync`/`finish`/`prune`/`worktree`/`pr`:
+
+```xml
+<branch-alias>
+  <branch>testing</branch>
+  <branch>testing-incy</branch>
+</branch-alias>
+```
 
 ## Environment Variables
 

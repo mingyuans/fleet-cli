@@ -1,16 +1,60 @@
 package manifest
 
+import (
+	"sort"
+	"strings"
+)
+
 // Merge merges a local manifest into a base manifest.
 // Rules:
 // - Remotes: same-name remotes are replaced, new remotes are appended.
 // - Default: per-attribute override (non-empty local attrs overwrite base).
+// - BranchAliases: same-member-set groups are replaced, new groups are appended.
 // - Projects: same-name projects use per-attribute override; new projects are appended.
 func Merge(base, local *Manifest) *Manifest {
 	result := &Manifest{}
 	result.Remotes = mergeRemotes(base.Remotes, local.Remotes)
 	result.Default = mergeDefault(base.Default, local.Default)
+	result.BranchAliases = mergeBranchAliases(base.BranchAliases, local.BranchAliases)
 	result.Projects = mergeProjects(base.Projects, local.Projects)
 	return result
+}
+
+// mergeBranchAliases merges alias groups by their member set: a local group
+// whose normalized members match a base group replaces it, otherwise it is
+// appended. This keeps merging deterministic regardless of member order.
+func mergeBranchAliases(base, local []BranchAlias) []BranchAlias {
+	index := make(map[string]int, len(base))
+	result := make([]BranchAlias, len(base))
+	copy(result, base)
+
+	for i, a := range result {
+		index[aliasKey(a)] = i
+	}
+
+	for _, la := range local {
+		key := aliasKey(la)
+		if idx, ok := index[key]; ok {
+			result[idx] = la
+		} else {
+			index[key] = len(result)
+			result = append(result, la)
+		}
+	}
+	return result
+}
+
+// aliasKey returns an order-independent key for a branch alias group, built from
+// its trimmed, sorted members.
+func aliasKey(a BranchAlias) string {
+	members := make([]string, 0, len(a.Branches))
+	for _, b := range a.Branches {
+		if b = strings.TrimSpace(b); b != "" {
+			members = append(members, b)
+		}
+	}
+	sort.Strings(members)
+	return strings.Join(members, "\x00")
 }
 
 func mergeRemotes(base, local []Remote) []Remote {

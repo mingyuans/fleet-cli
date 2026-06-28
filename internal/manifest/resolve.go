@@ -34,6 +34,8 @@ func Resolve(m *Manifest) ([]ResolvedProject, int, string, error) {
 		}
 	}
 
+	aliasGroups := normalizeAliasGroups(m.BranchAliases, masterMainCompat)
+
 	resolved := make([]ResolvedProject, 0, len(m.Projects))
 	for _, p := range m.Projects {
 		rp := ResolvedProject{
@@ -66,7 +68,7 @@ func Resolve(m *Manifest) ([]ResolvedProject, int, string, error) {
 		}
 		rp.CloneURL = ensureTrailingSlash(fetchRemote.Fetch) + p.Name + ".git"
 
-		rp.MasterMainCompat = masterMainCompat
+		rp.AliasGroups = aliasGroups
 
 		if rp.Push != "" {
 			rp.HasPushRemote = true
@@ -102,4 +104,47 @@ func ensureTrailingSlash(s string) string {
 		return s + "/"
 	}
 	return s
+}
+
+// normalizeAliasGroups turns the raw <branch-alias> elements into clean alias
+// groups: each member is trimmed, blank members are dropped, intra-group
+// duplicates are removed, and groups with fewer than 2 valid members are
+// ignored. When masterMainCompat is enabled and no explicit group already
+// covers master/main, a built-in ["master", "main"] group is appended so the
+// legacy flag keeps working.
+func normalizeAliasGroups(aliases []BranchAlias, masterMainCompat bool) [][]string {
+	var groups [][]string
+	for _, a := range aliases {
+		seen := make(map[string]bool, len(a.Branches))
+		var members []string
+		for _, b := range a.Branches {
+			b = strings.TrimSpace(b)
+			if b == "" || seen[b] {
+				continue
+			}
+			seen[b] = true
+			members = append(members, b)
+		}
+		if len(members) >= 2 {
+			groups = append(groups, members)
+		}
+	}
+
+	if masterMainCompat && !groupsCoverMasterMain(groups) {
+		groups = append(groups, []string{"master", "main"})
+	}
+	return groups
+}
+
+// groupsCoverMasterMain reports whether any alias group already contains
+// "master" or "main".
+func groupsCoverMasterMain(groups [][]string) bool {
+	for _, g := range groups {
+		for _, b := range g {
+			if b == "master" || b == "main" {
+				return true
+			}
+		}
+	}
+	return false
 }

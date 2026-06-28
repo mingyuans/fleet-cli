@@ -51,6 +51,33 @@
            worktree-copy=".env,.env.*" />
 
   <!--
+    <branch-alias> — Declare a group of branches treated as PEER aliases of each
+    other (no master/slave). List each member as a <branch> child element. One
+    group per <branch-alias>; declare as many as you need.
+
+    When Fleet must resolve a branch on a repo but it does not exist there, it
+    falls back to the first existing member of its alias group. The requested
+    branch is always tried first; remaining members follow in declared order.
+
+    Used by "fleet start <branch>" (the create-from base point when <branch>
+    itself is an alias member) and by revision resolution in sync/finish/prune/
+    worktree and "fleet pr" (without --base).
+
+    Note: "master-main-compat=true" above is equivalent to a master/main group
+    and can coexist with the groups below.
+    Note: "fleet pr --base" does NOT stack alias fallback — use
+    --base "testing-incy|testing" to control candidate order explicitly.
+  -->
+  <branch-alias>
+    <branch>testing</branch>
+    <branch>testing-incy</branch>
+  </branch-alias>
+  <branch-alias>
+    <branch>staging</branch>
+    <branch>staging-incy</branch>
+  </branch-alias>
+
+  <!--
     <project> — Define a managed Git repository.
     Attributes:
       name     (required) — Repository name. Used to construct clone/push URLs:

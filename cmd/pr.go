@@ -90,10 +90,10 @@ func prProject(root string, proj manifest.ResolvedProject, log executor.LogFunc)
 		}
 	}
 
-	// Resolve the actual revision on the fetch remote (with masterMainCompat)
+	// Resolve the actual revision on the fetch remote (with branch-alias fallback)
 	revision := proj.Revision
 	if fetchRemote != "" {
-		if resolved := resolveRevision(projDir, fetchRemote, proj.Revision, proj.MasterMainCompat); resolved != "" {
+		if resolved := resolveRevision(projDir, fetchRemote, proj.Revision, proj.AliasGroups); resolved != "" {
 			revision = resolved
 		}
 	}

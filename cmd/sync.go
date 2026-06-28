@@ -61,8 +61,8 @@ func syncProject(root string, proj manifest.ResolvedProject, log executor.LogFun
 		return "failed", executor.StatusFail, err.Error()
 	}
 
-	// Check if on default branch (with master<->main compat)
-	revision := resolveRevision(projDir, remote, proj.Revision, proj.MasterMainCompat)
+	// Check if on default branch (with branch-alias fallback)
+	revision := resolveRevision(projDir, remote, proj.Revision, proj.AliasGroups)
 	if revision == "" {
 		revision = proj.Revision
 	}

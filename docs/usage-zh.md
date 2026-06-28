@@ -224,6 +224,7 @@ fleet start [-g <group>] <branch>
 - 目标分支已存在 → 切换到该分支（`git checkout`）
 - 目标分支不存在 → 从 remote fetch 最新代码，基于 `<remote>/<default-branch>` 创建（`git checkout -b`）
 - 支持 `master-main-compat`：若 `master` 在 remote 上不存在，自动尝试 `main`（反之亦然）
+- 支持 `<branch-alias>` 别名组：若目标分支本身属于某个别名组（如 `testing-incy`），则基于该别名组解析建分支起点——优先用目标分支自身，缺失时回退到组内其它成员（如 `testing`）；新建的本地分支名始终是你输入的名字
 
 **输出示例：**
 
@@ -445,6 +446,7 @@ fleet ide-setup idea [-g <group>]
 |------|------|
 | `<remote>` | 定义一个 Git remote 端点（`name`、`fetch`、`review`） |
 | `<default>` | 所有项目的默认值（`remote`、`revision`、`sync-j`、`push`、`master-main-compat`、`worktree-base`、`worktree-copy`） |
+| `<branch-alias>` | 定义一组互为别名的分支（成员用 `<branch>` 子元素列出） |
 | `<project>` | 定义一个 Git 仓库（`name`、`path`、`groups`、`remote`、`revision`、`push`、`worktree-copy`） |
 
 ### `master-main-compat` 属性
@@ -455,12 +457,37 @@ fleet ide-setup idea [-g <group>]
 <default remote="github" revision="master" sync-j="4" master-main-compat="true" />
 ```
 
+> 等价于声明一组 `<branch-alias>` 别名 `master`/`main`。`master-main-compat` 与显式 `<branch-alias>` 配置可并存。
+
+### `<branch-alias>` 分支别名组
+
+`<branch-alias>` 把一组分支声明为**互为对等的别名**（无主从），成员用 `<branch>` 子元素逐个列出。一组别名一条配置，可声明多条：
+
+```xml
+<branch-alias>
+  <branch>testing</branch>
+  <branch>testing-incy</branch>
+</branch-alias>
+<branch-alias>
+  <branch>staging</branch>
+  <branch>staging-incy</branch>
+</branch-alias>
+```
+
+**作用**：当 Fleet 需要在某个仓库上解析一个分支、但该分支在 remote 上不存在时，会在其所属别名组内回退到第一个真实存在的成员（被请求的分支自身优先，其余成员按声明顺序作为确定性 tie-break）。该回退应用于：
+
+- `fleet start <branch>`：当 `<branch>` 属于某别名组时（例如 `fleet start testing-incy`），建分支起点按别名组解析——某仓库没有 `testing-incy` 但有 `testing`，则基于 `testing` 创建本地的 `testing-incy`。
+- `sync` / `finish` / `prune` / `worktree` 以及未指定 `--base` 的 `pr`：对 `revision` 的解析同样按别名组回退。
+
+> 注意：`fleet pr --base` 显式指定目标分支时**不会**叠加别名回退，请用 `--base "testing-incy|testing"` 自行控制候选顺序。
+
 ### 合并规则
 
 当 `local_fleet.xml` 存在时，与 `fleet.xml` 按以下规则合并：
 
 - **Remote** — 同名替换，新增追加
 - **Default** — 逐属性覆盖（local 非空属性覆盖 default 对应属性）
+- **BranchAlias** — 成员集合相同的别名组替换，新增追加
 - **Project** — 同名逐属性覆盖，新增追加
 
 ### URL 构建规则

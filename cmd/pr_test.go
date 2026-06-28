@@ -117,9 +117,9 @@ func TestResolveBaseFromCandidates(t *testing.T) {
 	}
 
 	tests := []struct {
-		name        string
-		candidates  []string
-		wantBranch  string
+		name       string
+		candidates []string
+		wantBranch string
 	}{
 		{
 			name:       "single candidate exists",

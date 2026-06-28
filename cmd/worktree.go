@@ -156,7 +156,7 @@ func worktreeProject(root, worktreeRoot string, proj manifest.ResolvedProject, b
 		if remote == "" {
 			return "failed", executor.StatusFail, "no suitable remote found"
 		}
-		rev := resolveRevision(projDir, remote, effectiveRevision, proj.MasterMainCompat)
+		rev := resolveRevision(projDir, remote, effectiveRevision, proj.AliasGroups)
 		if rev == "" {
 			rev = effectiveRevision
 		}

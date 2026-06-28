@@ -1,35 +1,48 @@
 package cmd
 
-import "github.com/xq-yan/fleet-cli/internal/git"
+import (
+	"slices"
 
-// resolveRevision returns the actual branch to use on the remote.
-// If the configured revision exists, it is returned directly.
-// When masterMainCompat is true and revision is "master" or "main",
-// it falls back to the peer branch if the configured one doesn't exist.
-func resolveRevision(dir, remote, revision string, masterMainCompat bool) string {
-	ref := remote + "/" + revision
-	if git.RemoteRefExists(dir, ref) {
-		return revision
+	"github.com/xq-yan/fleet-cli/internal/git"
+)
+
+// resolveRevision returns the actual branch to use on the remote for a
+// configured revision, applying branch-alias fallback. It is a thin wrapper
+// around resolveBranchWithAliases.
+func resolveRevision(dir, remote, revision string, groups [][]string) string {
+	return resolveBranchWithAliases(dir, remote, revision, groups)
+}
+
+// resolveBranchWithAliases returns the branch actually available on the remote.
+// It first tries branch itself; if that ref is absent and branch belongs to an
+// alias group, it falls back to the first existing member of that group. The
+// requested branch is always tried first; the remaining members are tried in
+// their declared order as a deterministic tie-break. Returns "" when nothing
+// usable exists.
+func resolveBranchWithAliases(dir, remote, branch string, groups [][]string) string {
+	if git.RemoteRefExists(dir, remote+"/"+branch) {
+		return branch
 	}
-	if masterMainCompat {
-		peer := masterMainPeer(revision)
-		if peer != "" && git.RemoteRefExists(dir, remote+"/"+peer) {
-			return peer
+	for _, candidate := range branchAliasGroup(branch, groups) {
+		if candidate == branch {
+			continue
+		}
+		if git.RemoteRefExists(dir, remote+"/"+candidate) {
+			return candidate
 		}
 	}
 	return ""
 }
 
-// masterMainPeer returns the counterpart of master/main. Empty if neither.
-func masterMainPeer(branch string) string {
-	switch branch {
-	case "master":
-		return "main"
-	case "main":
-		return "master"
-	default:
-		return ""
+// branchAliasGroup returns the first alias group that contains branch, or nil
+// when branch belongs to no group.
+func branchAliasGroup(branch string, groups [][]string) []string {
+	for _, g := range groups {
+		if slices.Contains(g, branch) {
+			return g
+		}
 	}
+	return nil
 }
 
 // resolveRemote returns the remote name to use, falling back to "origin".

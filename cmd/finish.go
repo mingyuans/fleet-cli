@@ -69,10 +69,10 @@ func finishProject(root string, proj manifest.ResolvedProject, branch string, lo
 
 	if current == branch {
 		defaultBranch := proj.Revision
-		// Use compat to find the actual default branch
+		// Use branch-alias fallback to find the actual default branch
 		remote := resolveRemote(projDir, proj.Remote)
 		if remote != "" {
-			if resolved := resolveRevision(projDir, remote, proj.Revision, proj.MasterMainCompat); resolved != "" {
+			if resolved := resolveRevision(projDir, remote, proj.Revision, proj.AliasGroups); resolved != "" {
 				defaultBranch = resolved
 			}
 		}

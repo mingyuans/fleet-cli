@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/xq-yan/fleet-cli/internal/executor"
@@ -84,14 +85,22 @@ func startProject(root string, proj manifest.ResolvedProject, branch string, log
 		return "failed", executor.StatusFail, "fetch failed: " + err.Error()
 	}
 
-	// Resolve base branch from manifest revision, with optional master<->main compat
-	baseBranch := resolveRevision(projDir, remote, proj.Revision, proj.MasterMainCompat)
-	if baseBranch == "" {
-		msg := remote + "/" + proj.Revision + " not found"
-		if proj.MasterMainCompat {
-			msg += " (also tried " + masterMainPeer(proj.Revision) + ")"
+	// Resolve the base branch to create from.
+	// When the target branch itself belongs to an alias group (e.g. testing-incy),
+	// base it on that group (testing-incy -> testing fallback) rather than the
+	// configured revision. Otherwise use the configured revision (alias fallback
+	// still applies, e.g. master<->main).
+	var baseBranch string
+	if group := branchAliasGroup(branch, proj.AliasGroups); group != nil {
+		baseBranch = resolveBranchWithAliases(projDir, remote, branch, proj.AliasGroups)
+		if baseBranch == "" {
+			return "failed", executor.StatusFail, "no alias branch found on " + remote + " (tried " + strings.Join(group, ", ") + ")"
 		}
-		return "failed", executor.StatusFail, msg
+	} else {
+		baseBranch = resolveRevision(projDir, remote, proj.Revision, proj.AliasGroups)
+		if baseBranch == "" {
+			return "failed", executor.StatusFail, remote + "/" + proj.Revision + " not found"
+		}
 	}
 
 	startPoint := remote + "/" + baseBranch

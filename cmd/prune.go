@@ -120,7 +120,7 @@ func collectPruneCandidates(root string, projects []manifest.ResolvedProject, co
 			return "failed", executor.StatusFail, "fetch failed: " + err.Error()
 		}
 
-		revision := resolveRevision(projDir, remote, proj.Revision, proj.MasterMainCompat)
+		revision := resolveRevision(projDir, remote, proj.Revision, proj.AliasGroups)
 		if revision == "" {
 			return "failed", executor.StatusFail, "revision " + proj.Revision + " not found on remote"
 		}
@@ -168,7 +168,7 @@ func deleteCandidates(root string, candidates []pruneCandidate) (deleted, failed
 			continue
 		}
 		if current == c.branch {
-			revision := resolveRevision(projDir, remote, c.proj.Revision, c.proj.MasterMainCompat)
+			revision := resolveRevision(projDir, remote, c.proj.Revision, c.proj.AliasGroups)
 			if revision == "" {
 				revision = c.proj.Revision
 			}

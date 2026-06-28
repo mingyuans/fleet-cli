@@ -224,6 +224,7 @@ fleet start [-g <group>] <branch>
 - Target branch already exists locally → switch to it (`git checkout`)
 - Target branch does not exist → fetch from remote, then create from `<remote>/<default-branch>` (`git checkout -b`)
 - Supports `master-main-compat`: if `master` is not found on the remote, automatically tries `main` (and vice versa)
+- Supports `<branch-alias>` groups: if the target branch itself belongs to an alias group (e.g. `testing-incy`), the base start point is resolved within that group — the target branch is tried first, then the group's other members (e.g. `testing`) as a fallback; the created local branch always keeps the name you typed
 
 **Example output:**
 
@@ -445,6 +446,7 @@ This allows IntelliJ-based IDEs to recognize all repos when opening the workspac
 |---------|-------------|
 | `<remote>` | Defines a Git remote endpoint (`name`, `fetch`, `review`) |
 | `<default>` | Default values for all projects (`remote`, `revision`, `sync-j`, `push`, `master-main-compat`, `worktree-base`, `worktree-copy`) |
+| `<branch-alias>` | Defines a group of branches treated as aliases of each other (members listed as `<branch>` child elements) |
 | `<project>` | Defines a managed Git repository (`name`, `path`, `groups`, `remote`, `revision`, `push`, `worktree-copy`) |
 
 ### `master-main-compat` Attribute
@@ -455,12 +457,37 @@ When `master-main-compat="true"` is set on `<default>`, Fleet automatically fall
 <default remote="github" revision="master" sync-j="4" master-main-compat="true" />
 ```
 
+> This is equivalent to declaring a `<branch-alias>` group of `master`/`main`. `master-main-compat` can coexist with explicit `<branch-alias>` entries.
+
+### `<branch-alias>` Branch Alias Groups
+
+`<branch-alias>` declares a group of branches as **peer aliases** of each other (no master/slave), with members listed as `<branch>` child elements. One group per entry; declare as many as needed:
+
+```xml
+<branch-alias>
+  <branch>testing</branch>
+  <branch>testing-incy</branch>
+</branch-alias>
+<branch-alias>
+  <branch>staging</branch>
+  <branch>staging-incy</branch>
+</branch-alias>
+```
+
+**Effect**: when Fleet needs to resolve a branch in a repo but that branch does not exist on the remote, it falls back to the first existing member of its alias group (the requested branch is tried first; the remaining members follow in declared order as a deterministic tie-break). This applies to:
+
+- `fleet start <branch>`: when `<branch>` belongs to an alias group (e.g. `fleet start testing-incy`), the base start point is resolved through the group — a repo without `testing-incy` but with `testing` creates the local `testing-incy` based on `testing`.
+- `sync` / `finish` / `prune` / `worktree` and `pr` (without `--base`): `revision` resolution also falls back through alias groups.
+
+> Note: `fleet pr --base` does NOT stack alias fallback; use `--base "testing-incy|testing"` to control candidate order explicitly.
+
 ### Merge Rules
 
 When `local_fleet.xml` exists, it is merged with `fleet.xml` according to these rules:
 
 - **Remote** — Same-name remotes are fully replaced; new remotes are appended
 - **Default** — Per-attribute override (non-empty local attributes overwrite the corresponding base attributes)
+- **BranchAlias** — Alias groups with the same member set are replaced; new groups are appended
 - **Project** — Same-name projects use per-attribute override; new projects are appended
 
 ### URL Construction
