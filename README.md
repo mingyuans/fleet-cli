@@ -22,6 +22,8 @@ cd fleet-cli
 make install
 ```
 
+Already installed? Upgrade in place with `fleet update` (see [below](#fleet-update-flags)).
+
 ## Quick Start
 
 **1. Create a workspace with `fleet.xml`:**
@@ -68,6 +70,7 @@ fleet init
 | `fleet worktree <name>` | Create a git worktree for every repo under a shared base directory |
 | `fleet forall -c "cmd"` | Run a shell command in every repo |
 | `fleet ide-setup idea` | Generate IntelliJ/GoLand VCS mappings |
+| `fleet update` | Check GitHub Releases for a newer version and upgrade in place |
 
 All commands support `-g <expr>` to filter by group (`,` = OR, `+` = AND).
 
@@ -79,6 +82,23 @@ All commands support `-g <expr>` to filter by group (`,` = OR, `+` = AND).
 | `-b, --base`  | Target base branch for PR. Supports `\|` as fallback separator (e.g. `"testing-incy\|testing"`). If omitted, uses the project's default revision branch. |
 
 When `-b` is used, Fleet fetches the upstream remote to ensure refs are up-to-date, then picks the **first matching branch** from the candidate list. If no candidate exists on the remote, that project is skipped.
+
+### `fleet update` flags
+
+`fleet update` compares the running version against the latest GitHub Release, then downloads the matching `fleet-<os>-<arch>.tar.gz`, verifies its SHA-256 against `checksums.txt`, and atomically replaces the current binary.
+
+| Flag | Description |
+|------|-------------|
+| `--check` | Only report whether a newer version is available; do not download or install |
+| `--force` | Reinstall the latest version even if already up to date (also required to upgrade a `dev` build) |
+
+```bash
+fleet update           # upgrade if a newer version exists
+fleet update --check   # just check, don't install
+fleet update --force   # force reinstall the latest release
+```
+
+Supported platforms are macOS and Linux on `amd64`/`arm64`. If the install directory is not writable (e.g. `/usr/local/bin`), re-run with `sudo fleet update`.
 
 ## Typical Workflow
 
