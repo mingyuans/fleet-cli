@@ -3,7 +3,7 @@ set -e
 
 REPO="mingyuans/fleet-cli"
 BINARY="fleet"
-INSTALL_DIR="/usr/local/bin"
+INSTALL_DIR="$HOME/.local/bin"
 
 # Allow overrides via environment
 VERSION="${FLEET_VERSION:-latest}"
