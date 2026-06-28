@@ -276,7 +276,7 @@ Finishing branch feature/new-api across 3 projects...
 Push the current branch and create a pull request via `gh` CLI across all repositories.
 
 ```bash
-fleet pr [-g <group>] [-t <title>]
+fleet pr [-g <group>] [-t <title>] [-b <base>]
 ```
 
 **Options:**
@@ -284,13 +284,16 @@ fleet pr [-g <group>] [-t <title>]
 | Flag | Description |
 |------|-------------|
 | `-t, --title` | PR title (defaults to branch name) |
+| `-b, --base` | Target base branch for the PR. Supports `\|` as a fallback separator (e.g. `"testing-incy\|testing"`). Fleet tries each candidate left-to-right and uses the first branch that exists on the remote. If omitted, defaults to the project's revision branch. |
 
 **Prerequisites:** Requires the [GitHub CLI (`gh`)](https://cli.github.com/) to be installed and authenticated.
 
 **Behavior:**
 
 - Pushes the current branch to the push remote
-- Creates a PR targeting the upstream default branch (fetch remote)
+- Creates a PR targeting the upstream default branch (fetch remote), or the branch specified by `-b`
+- When `-b` is used, Fleet fetches the upstream remote first to ensure branch refs are up-to-date
+- If none of the `-b` candidate branches exist on the remote, the project is skipped
 - For fork workflows, automatically sets `--head` to `<fork-owner>:<branch>`
 - Skips repos on the default branch, with detached HEAD, or without a push remote
 
@@ -514,8 +517,14 @@ fleet start feature/my-feature
 # Push feature branches to fork
 fleet push
 
-# Push and create PRs
+# Push and create PRs (target: default branch)
 fleet pr -t "feat: my feature"
+
+# Create PRs targeting a specific branch
+fleet pr -b testing -t "feat: my feature"
+
+# Specify a fallback branch list (prefer staging, fall back to testing)
+fleet pr -b "staging|testing"
 
 # Clean up after merge
 fleet finish feature/my-feature

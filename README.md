@@ -63,12 +63,21 @@ fleet init
 | `fleet start <branch>` | Create a feature branch across all repos from upstream HEAD |
 | `fleet finish <branch>` | Delete a branch and switch back to default (`-r` to delete remote too) |
 | `fleet push` | Push current branch to fork (`--all` to include default branch) |
-| `fleet pr` | Push and create PRs via `gh` CLI (`-t` to set title) |
+| `fleet pr` | Push and create PRs via `gh` CLI (`-t` to set title, `-b` to set target branch) |
 | `fleet worktree <name>` | Create a git worktree for every repo under a shared base directory |
 | `fleet forall -c "cmd"` | Run a shell command in every repo |
 | `fleet ide-setup idea` | Generate IntelliJ/GoLand VCS mappings |
 
 All commands support `-g <expr>` to filter by group (`,` = OR, `+` = AND).
+
+### `fleet pr` flags
+
+| Flag | Description |
+|------|-------------|
+| `-t, --title` | PR title (default: branch name) |
+| `-b, --base`  | Target base branch for PR. Supports `\|` as fallback separator (e.g. `"testing-incy\|testing"`). If omitted, uses the project's default revision branch. |
+
+When `-b` is used, Fleet fetches the upstream remote to ensure refs are up-to-date, then picks the **first matching branch** from the candidate list. If no candidate exists on the remote, that project is skipped.
 
 ## Typical Workflow
 
@@ -78,7 +87,9 @@ fleet sync                          # pull latest upstream
 fleet start feature/my-feature      # create branch everywhere
 # ... make changes ...
 fleet push                          # push to fork
-fleet pr -t "feat: my feature"      # create PRs
+fleet pr -t "feat: my feature"      # create PRs (target: default branch)
+fleet pr -b testing                 # create PRs targeting "testing" branch
+fleet pr -b "staging|testing"       # target "staging", fallback to "testing"
 fleet finish feature/my-feature     # clean up after merge
 ```
 

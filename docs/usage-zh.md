@@ -276,7 +276,7 @@ Finishing branch feature/new-api across 3 projects...
 推送当前分支并通过 `gh` CLI 创建 Pull Request。
 
 ```bash
-fleet pr [-g <group>] [-t <title>]
+fleet pr [-g <group>] [-t <title>] [-b <base>]
 ```
 
 **选项：**
@@ -284,13 +284,16 @@ fleet pr [-g <group>] [-t <title>]
 | 参数 | 说明 |
 |------|------|
 | `-t, --title` | PR 标题（默认使用分支名） |
+| `-b, --base` | 指定 PR 的目标分支。支持 `\|` 分隔的 fallback 列表（如 `"testing-incy\|testing"`），Fleet 会从左到右依次查找，使用第一个在 remote 上存在的分支。未指定时默认使用项目的 revision 分支。 |
 
 **前置条件：** 需要安装并认证 [GitHub CLI (`gh`)](https://cli.github.com/)。
 
 **行为：**
 
 - 将当前分支推送到 push remote
-- 创建 PR，目标为上游默认分支（fetch remote）
+- 创建 PR，目标为上游默认分支（fetch remote），或 `-b` 指定的分支
+- 使用 `-b` 时，Fleet 会先 fetch 上游 remote 以确保分支引用是最新的
+- 若 `-b` 指定的所有候选分支在 remote 上均不存在，该项目将被跳过
 - Fork 工作流下自动设置 `--head` 为 `<fork-owner>:<branch>`
 - 跳过处于默认分支、detached HEAD 或无 push remote 的仓库
 
@@ -514,8 +517,14 @@ fleet start feature/my-feature
 # 推送 feature branch 到 fork
 fleet push
 
-# 推送并创建 PR
+# 推送并创建 PR（目标：默认分支）
 fleet pr -t "feat: my feature"
+
+# 创建 PR 到指定分支
+fleet pr -b testing -t "feat: my feature"
+
+# 指定 fallback 分支列表（优先 staging，不存在则用 testing）
+fleet pr -b "staging|testing"
 
 # 合并后清理分支
 fleet finish feature/my-feature
