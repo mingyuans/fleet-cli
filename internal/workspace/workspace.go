@@ -21,7 +21,7 @@ type Workspace struct {
 	HasLocalManifest bool
 	Projects         []manifest.ResolvedProject
 	SyncJ            int
-	WorktreeBase     string // base directory for git worktrees (from worktree-base in fleet.xml)
+	WorktreeBase     string // absolute base directory for git worktrees (from worktree-base in fleet.xml), or empty
 }
 
 // Load locates manifests, parses, merges, and returns the resolved workspace.
@@ -61,7 +61,7 @@ func Load() (*Workspace, error) {
 	}
 	ws.Projects = projects
 	ws.SyncJ = syncJ
-	ws.WorktreeBase = ExpandHome(worktreeBase)
+	ws.WorktreeBase = ResolvePath(root, worktreeBase)
 
 	return ws, nil
 }
@@ -89,6 +89,23 @@ func resolveLocalManifestPath(root string) string {
 		}
 	}
 	return filepath.Join(root, localManifestFile)
+}
+
+// ResolvePath turns a manifest-supplied path into an absolute one. A leading ~
+// expands to the user's home directory and an already-absolute path is returned
+// unchanged; anything else is joined onto base, which callers pass as the
+// workspace root. Resolving against the workspace root rather than the process
+// working directory keeps a relative path like "./worktrees/fleet" pointing at
+// the same place no matter which subdirectory fleet is invoked from.
+func ResolvePath(base, path string) string {
+	if path == "" {
+		return ""
+	}
+	expanded := ExpandHome(path)
+	if filepath.IsAbs(expanded) {
+		return expanded
+	}
+	return filepath.Join(base, expanded)
 }
 
 // ExpandHome replaces a leading ~ with the user's home directory.

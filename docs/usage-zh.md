@@ -367,13 +367,13 @@ fleet worktree <name> [-b <branch>] [-r <revision>] [-d <dest>] [-g <group>]
 |------|------|
 | `-b, --branch` | 要创建或切换的分支名（默认：与 `name` 相同） |
 | `-r, --revision` | 新分支的基础 upstream revision（默认：各项目在 fleet.xml 中配置的 `revision`） |
-| `-d, --dest` | worktree 的目标目录，覆盖 `worktree-base/<name>` 路径拼接 |
+| `-d, --dest` | worktree 的目标目录，覆盖 `worktree-base/<name>` 路径拼接。相对路径以 workspace 根目录为基准 |
 
 **使用场景：** 在不切换主工作区分支的情况下，并行开发另一个需求。每个仓库的 worktree 创建在 `<worktree-base>/<name>/<proj.path>` 下，目录结构与原工作区完全对应。
 
 指定 `--dest` 时，worktree 直接创建在 `<dest>/<proj.path>` 下，跳过 `worktree-base` 配置。适用于需要完全控制目标路径或未配置 `worktree-base` 的场景。
 
-**配置** — 在 `fleet.xml` 的 `<default>` 中添加 `worktree-base`（未使用 `--dest` 时必填）和 `worktree-copy`（可选）：
+**配置** — 在 `fleet.xml` 的 `<default>` 中添加 `worktree-base`（未使用 `--dest` 时必填）和 `worktree-copy`（可选）。两者均可在 `local_fleet.xml` 中覆盖：
 
 ```xml
 <default remote="github"
@@ -385,7 +385,7 @@ fleet worktree <name> [-b <branch>] [-r <revision>] [-d <dest>] [-g <group>]
 
 | 属性 | 说明 |
 |------|------|
-| `worktree-base` | 所有 worktree 的基础目录，支持 `~` 展开。未使用 `--dest` 时必填。 |
+| `worktree-base` | 所有 worktree 的基础目录。支持 `~` 展开、绝对路径和相对路径；**相对路径以 workspace 根目录（`fleet.xml` 所在目录）为基准**，与执行命令时所处的目录无关。未使用 `--dest` 时必填。 |
 | `worktree-copy` | 逗号分隔的 glob 表达式，用于指定创建 worktree 后需要从原仓库复制的 gitignored 文件（如 `.env`）。所有项目默认继承此配置，单个 `<project>` 可通过自身的 `worktree-copy` 属性完全覆盖。 |
 
 **行为：**
@@ -396,6 +396,10 @@ fleet worktree <name> [-b <branch>] [-r <revision>] [-d <dest>] [-g <group>]
 - workspace 根项目（`path="."`）优先处理，避免与并行执行的 service 项目产生目录竞争
 - 创建完成后，将 `worktree-copy` 匹配的文件从源仓库复制到新 worktree
 - 目标路径的 worktree 已存在 → 跳过
+
+> **提示**：若 `worktree-base` 指向 workspace 内部（如 `./worktrees/fleet`），建议将该目录加入根仓库的 `.gitignore`，避免 worktree 产生 untracked 噪音。
+>
+> 此前使用相对路径 `worktree-base` 执行过 `fleet worktree` 的用户，请检查各业务仓库内是否残留了错误位置的 worktree 目录，用 `git worktree remove <path>` 清理后重新执行。
 
 **输出示例：**
 

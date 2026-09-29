@@ -139,3 +139,43 @@ func TestResolveUnknownRemoteError(t *testing.T) {
 		t.Fatal("expected error for unknown remote")
 	}
 }
+
+func TestResolveWorktreeCopyPrecedence(t *testing.T) {
+	m := &Manifest{
+		Remotes: []Remote{{Name: "github", Fetch: "git@github.com:Org/"}},
+		Default: &Default{Remote: "github", Revision: "main", WorktreeCopy: ".env, .env.*"},
+		Projects: []Project{
+			{Name: "inherits", Path: "services/inherits"},
+			{Name: "overrides", Path: "services/overrides", WorktreeCopy: "config.local.yaml"},
+		},
+	}
+	resolved, _, _, err := Resolve(m)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	inherited := resolved[0].WorktreeCopy
+	if len(inherited) != 2 || inherited[0] != ".env" || inherited[1] != ".env.*" {
+		t.Errorf("expected default patterns split and trimmed, got %v", inherited)
+	}
+
+	overridden := resolved[1].WorktreeCopy
+	if len(overridden) != 1 || overridden[0] != "config.local.yaml" {
+		t.Errorf("expected project-level patterns to replace the default, got %v", overridden)
+	}
+}
+
+func TestResolveWorktreeBaseReturned(t *testing.T) {
+	m := &Manifest{
+		Remotes:  []Remote{{Name: "github", Fetch: "git@github.com:Org/"}},
+		Default:  &Default{Remote: "github", Revision: "main", WorktreeBase: "./worktrees/fleet"},
+		Projects: []Project{{Name: "svc", Path: "services/svc"}},
+	}
+	_, _, worktreeBase, err := Resolve(m)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if worktreeBase != "./worktrees/fleet" {
+		t.Errorf("expected worktree base passed through unchanged, got %q", worktreeBase)
+	}
+}

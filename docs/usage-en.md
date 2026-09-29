@@ -367,13 +367,13 @@ fleet worktree <name> [-b <branch>] [-r <revision>] [-d <dest>] [-g <group>]
 |------|-------------|
 | `-b, --branch` | Branch name to create or check out (default: same as `name`) |
 | `-r, --revision` | Upstream revision to base the new branch on (default: each project's `revision` in fleet.xml) |
-| `-d, --dest` | Destination directory for worktrees, overrides `worktree-base/<name>` |
+| `-d, --dest` | Destination directory for worktrees, overrides `worktree-base/<name>`. A relative path resolves against the workspace root |
 
 **Use case:** Work on a second feature in parallel without switching branches in your main workspace. Each repo gets a worktree at `<worktree-base>/<name>/<proj.path>`, preserving the same directory structure.
 
 When `--dest` is specified, worktrees are placed directly at `<dest>/<proj.path>`, bypassing the `worktree-base` configuration. This is useful when you want full control over the target path or haven't configured `worktree-base` in fleet.xml.
 
-**Configuration** — add `worktree-base` (required without `--dest`) and `worktree-copy` (optional) to `<default>` in `fleet.xml`:
+**Configuration** — add `worktree-base` (required without `--dest`) and `worktree-copy` (optional) to `<default>` in `fleet.xml`. Both can be overridden in `local_fleet.xml`:
 
 ```xml
 <default remote="github"
@@ -385,7 +385,7 @@ When `--dest` is specified, worktrees are placed directly at `<dest>/<proj.path>
 
 | Attribute | Description |
 |-----------|-------------|
-| `worktree-base` | Base directory for all worktrees. Supports `~` expansion. Required unless `--dest` is used. |
+| `worktree-base` | Base directory for all worktrees. Accepts `~` expansion, absolute paths, and relative paths; **a relative path resolves against the workspace root** (the directory holding `fleet.xml`), independent of the directory you run fleet from. Required unless `--dest` is used. |
 | `worktree-copy` | Comma-separated glob patterns for gitignored files to copy into each new worktree (e.g. `.env`). Inherited by all projects; individual projects can override with their own `worktree-copy` attribute. |
 
 **Behavior:**
@@ -396,6 +396,10 @@ When `--dest` is specified, worktrees are placed directly at `<dest>/<proj.path>
 - Workspace root project (`path="."`) is processed first to avoid directory races with parallel service projects
 - Files matching `worktree-copy` patterns are copied from the source repo into the new worktree after creation
 - Worktree already exists at the target path → skip
+
+> **Note:** If `worktree-base` points inside the workspace (e.g. `./worktrees/fleet`), add that directory to the root repository's `.gitignore` so the worktrees do not show up as untracked noise.
+>
+> If you ran `fleet worktree` with a relative `worktree-base` before this was fixed, check your project repositories for worktree directories left in the wrong place, clean them up with `git worktree remove <path>`, and re-run the command.
 
 **Example output:**
 

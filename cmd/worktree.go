@@ -30,8 +30,12 @@ Use --dest to place worktrees at an explicit directory, bypassing worktree-base.
 When --dest is used, <name> can be omitted but --branch is required:
   fleet worktree --dest ~/worktrees/feature-x -b feature-x
 
-Configure the default base path in fleet.xml:
-  <default worktree-base="~/worktrees/myproject" worktree-copy=".env,.env.*" />`,
+Configure the default base path in fleet.xml (or override it in local_fleet.xml):
+  <default worktree-base="~/worktrees/myproject" worktree-copy=".env,.env.*" />
+
+worktree-base and --dest accept ~, absolute paths, and relative paths. A relative
+path is resolved against the workspace root (the directory holding fleet.xml), so
+it points at the same place regardless of the directory fleet runs from.`,
 	Args: cobra.RangeArgs(0, 1),
 	RunE: runWorktree,
 }
@@ -42,7 +46,7 @@ func init() {
 	worktreeCmd.Flags().StringVarP(&worktreeRevision, "revision", "r", "",
 		"upstream revision to base the new branch on (default: project revision in fleet.xml)")
 	worktreeCmd.Flags().StringVarP(&worktreeDest, "dest", "d", "",
-		"destination directory for worktrees (overrides worktree-base/<name>)")
+		"destination directory for worktrees, relative to the workspace root (overrides worktree-base/<name>)")
 	rootCmd.AddCommand(worktreeCmd)
 }
 
@@ -72,7 +76,7 @@ func runWorktree(cmd *cobra.Command, args []string) error {
 	var worktreeRoot string
 	switch {
 	case worktreeDest != "":
-		worktreeRoot = workspace.ExpandHome(worktreeDest)
+		worktreeRoot = workspace.ResolvePath(ws.Root, worktreeDest)
 	case ws.WorktreeBase != "":
 		worktreeRoot = filepath.Join(ws.WorktreeBase, name)
 	default:
@@ -128,7 +132,18 @@ func worktreeProject(root, worktreeRoot string, proj manifest.ResolvedProject, b
 		return "skipped", executor.StatusSkip, "not cloned"
 	}
 
+	// Absolute path is required, not just convenient: os.Stat/os.MkdirAll below
+	// resolve a relative path against the process working directory while git
+	// resolves it against projDir, which would drop the worktree inside the
+	// project's own repository.
 	wtPath := filepath.Join(worktreeRoot, proj.Path)
+	if !filepath.IsAbs(wtPath) {
+		abs, err := filepath.Abs(wtPath)
+		if err != nil {
+			return "failed", executor.StatusFail, "resolving worktree path: " + err.Error()
+		}
+		wtPath = abs
+	}
 
 	// Checking the directory alone is unreliable: parent dirs may have been
 	// created by sibling projects running in parallel via MkdirAll.

@@ -137,3 +137,96 @@ func TestLoadMissingManifest(t *testing.T) {
 		t.Fatal("expected error for missing manifest")
 	}
 }
+
+func TestResolvePath(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home directory available")
+	}
+
+	tests := []struct {
+		name string
+		base string
+		path string
+		want string
+	}{
+		{"empty", "/w", "", ""},
+		{"relative", "/w", "worktrees/fleet", "/w/worktrees/fleet"},
+		{"dot-relative", "/w", "./worktrees/fleet", "/w/worktrees/fleet"},
+		{"parent-relative", "/w/sub", "../worktrees", "/w/worktrees"},
+		{"absolute", "/w", "/abs/worktrees", "/abs/worktrees"},
+		{"tilde", "/w", "~/worktrees/fleet", filepath.Join(home, "worktrees/fleet")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ResolvePath(tt.base, tt.path); got != tt.want {
+				t.Errorf("ResolvePath(%q, %q) = %q, want %q", tt.base, tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+const testWorktreeBaseXML = `<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote name="github" fetch="git@github.com:Org/" />
+  <default remote="github" revision="master" />
+  <project name="svc-a" path="services/svc-a" />
+</manifest>`
+
+const testWorktreeBaseLocalXML = `<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <default worktree-base="./worktrees/fleet" worktree-copy=".env,.env.*" />
+</manifest>`
+
+// TestLoadResolvesRelativeWorktreeBase covers the two halves of the fix together:
+// worktree-base declared only in local_fleet.xml must survive the merge, and the
+// relative path must resolve against the workspace root rather than the process
+// working directory.
+func TestLoadResolvesRelativeWorktreeBase(t *testing.T) {
+	dir := setupTestWorkspace(t, testWorktreeBaseXML, testWorktreeBaseLocalXML)
+	subDir := filepath.Join(dir, "services", "svc-a")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("FLEET_MANIFEST", "")
+	t.Setenv("FLEET_LOCAL_MANIFEST", "")
+	oldDir, _ := os.Getwd()
+	t.Cleanup(func() { os.Chdir(oldDir) })
+
+	for _, cwd := range []string{dir, subDir} {
+		if err := os.Chdir(cwd); err != nil {
+			t.Fatal(err)
+		}
+		ws, err := Load()
+		if err != nil {
+			t.Fatalf("unexpected error from %s: %v", cwd, err)
+		}
+		if !filepath.IsAbs(ws.WorktreeBase) {
+			t.Fatalf("expected absolute worktree base from %s, got %q", cwd, ws.WorktreeBase)
+		}
+		// Compare against ws.Root, which carries the same symlink form as the
+		// resolved base, so no EvalSymlinks normalization is needed.
+		want := filepath.Join(ws.Root, "worktrees", "fleet")
+		if ws.WorktreeBase != want {
+			t.Errorf("worktree base from cwd %s = %q, want %q", cwd, ws.WorktreeBase, want)
+		}
+		if len(ws.Projects) != 1 || len(ws.Projects[0].WorktreeCopy) != 2 {
+			t.Errorf("expected local worktree-copy patterns to merge, got %v", ws.Projects[0].WorktreeCopy)
+		}
+	}
+}
+
+func TestLoadEmptyWorktreeBaseStaysEmpty(t *testing.T) {
+	dir := setupTestWorkspace(t, testWorktreeBaseXML, "")
+	t.Setenv("FLEET_MANIFEST", filepath.Join(dir, "fleet.xml"))
+	t.Setenv("FLEET_LOCAL_MANIFEST", "")
+
+	ws, err := Load()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ws.WorktreeBase != "" {
+		t.Errorf("expected empty worktree base to stay empty, got %q", ws.WorktreeBase)
+	}
+}

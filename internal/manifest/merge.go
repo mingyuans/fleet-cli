@@ -102,6 +102,12 @@ func mergeDefault(base, local *Default) *Default {
 	if local.MasterMainCompat != "" {
 		result.MasterMainCompat = local.MasterMainCompat
 	}
+	if local.WorktreeBase != "" {
+		result.WorktreeBase = local.WorktreeBase
+	}
+	if local.WorktreeCopy != "" {
+		result.WorktreeCopy = local.WorktreeCopy
+	}
 	return result
 }
 
@@ -131,6 +137,9 @@ func mergeProjects(base, local []Project) []Project {
 			}
 			if lp.Push != "" {
 				bp.Push = lp.Push
+			}
+			if lp.WorktreeCopy != "" {
+				bp.WorktreeCopy = lp.WorktreeCopy
 			}
 		} else {
 			result = append(result, lp)
